@@ -33,9 +33,115 @@ const DETACHED_MESSAGES = {
   navigateEntry: "LOREKEEPER_NAVIGATE_ENTRY",
   close: "LOREKEEPER_CLOSE_DETACHED"
 };
+const FALLBACK_I18N = {
+  en: {
+    "LOREKEEPER.Title": "Lorekeeper",
+    "LOREKEEPER.Codex": "Codex",
+    "LOREKEEPER.Journal": "Journal",
+    "LOREKEEPER.CreateEntry": "Create entry",
+    "LOREKEEPER.Edit": "Edit",
+    "LOREKEEPER.Delete": "Delete",
+    "LOREKEEPER.Search": "Search",
+    "LOREKEEPER.SharedJournal": "Shared journal",
+    "LOREKEEPER.PrivateJournal": "Private journal",
+    "LOREKEEPER.AllTypes": "All types",
+    "LOREKEEPER.NoEntries": "No entries",
+    "LOREKEEPER.NoEntrySelected": "No entry selected",
+    "LOREKEEPER.OpenDetached": "Open in detached window",
+    "LOREKEEPER.DetachedMode": "Detached window mode",
+    "LOREKEEPER.Close": "Close",
+    "LOREKEEPER.PopupBlocked": "The browser blocked the Lorekeeper window. Allow popups for this site.",
+    "LOREKEEPER.WelcomeTitle": "Welcome to Lorekeeper",
+    "LOREKEEPER.WelcomeText": "Select a Codex entry from the left column, or create a new one to start collecting campaign knowledge.",
+    "LOREKEEPER.EditPlayerTitle": "Edit player title",
+    "LOREKEEPER.SharedNotes": "Shared comments",
+    "LOREKEEPER.PrivateNotes": "Private comments",
+    "LOREKEEPER.PlayerPrivateNotes": "Player private comments",
+    "LOREKEEPER.NoPrivateNotes": "No private comments",
+    "LOREKEEPER.Type": "Type",
+    "LOREKEEPER.TitleGM": "GM title",
+    "LOREKEEPER.TitlePlayer": "Player title",
+    "LOREKEEPER.Image": "Image",
+    "LOREKEEPER.DescriptionGM": "GM description",
+    "LOREKEEPER.DescriptionPlayer": "Player description",
+    "LOREKEEPER.Tags": "Tags",
+    "LOREKEEPER.Permissions": "Permissions",
+    "LOREKEEPER.DefaultPermission": "Default permission",
+    "LOREKEEPER.PermissionNone": "None",
+    "LOREKEEPER.PermissionRead": "Read",
+    "LOREKEEPER.NewSession": "New session",
+    "LOREKEEPER.Save": "Save",
+    "LOREKEEPER.Cancel": "Cancel",
+    "LOREKEEPER.DeleteConfirm": "Delete this entry?",
+    "LOREKEEPER.NoJournal": "No journal entries",
+    "LOREKEEPER.Untitled": "Untitled",
+    "LOREKEEPER.SessionTitle": "Session {date}",
+    "LOREKEEPER.Type.clue": "Clue",
+    "LOREKEEPER.Type.location": "Location",
+    "LOREKEEPER.Type.character": "Character",
+    "LOREKEEPER.Type.monster": "Monster",
+    "LOREKEEPER.Type.object": "Object"
+  },
+  fr: {
+    "LOREKEEPER.Title": "Lorekeeper",
+    "LOREKEEPER.Codex": "Codex",
+    "LOREKEEPER.Journal": "Journal",
+    "LOREKEEPER.CreateEntry": "Créer une entrée",
+    "LOREKEEPER.Edit": "Modifier",
+    "LOREKEEPER.Delete": "Supprimer",
+    "LOREKEEPER.Search": "Rechercher",
+    "LOREKEEPER.SharedJournal": "Journal commun",
+    "LOREKEEPER.PrivateJournal": "Journal privé",
+    "LOREKEEPER.AllTypes": "Tous les types",
+    "LOREKEEPER.NoEntries": "Aucune entrée",
+    "LOREKEEPER.NoEntrySelected": "Aucune entrée sélectionnée",
+    "LOREKEEPER.OpenDetached": "Ouvrir dans une fenêtre séparée",
+    "LOREKEEPER.DetachedMode": "Mode fenêtre séparée",
+    "LOREKEEPER.Close": "Fermer",
+    "LOREKEEPER.PopupBlocked": "Le navigateur a bloqué l’ouverture de la fenêtre Lorekeeper. Autorisez les popups pour ce site.",
+    "LOREKEEPER.WelcomeTitle": "Bienvenue dans Lorekeeper",
+    "LOREKEEPER.WelcomeText": "Sélectionnez une entrée du Codex dans la colonne de gauche, ou créez-en une pour commencer à rassembler le savoir de campagne.",
+    "LOREKEEPER.EditPlayerTitle": "Modifier le titre joueur",
+    "LOREKEEPER.SharedNotes": "Commentaires communs",
+    "LOREKEEPER.PrivateNotes": "Commentaires privés",
+    "LOREKEEPER.PlayerPrivateNotes": "Commentaires privés des joueurs",
+    "LOREKEEPER.NoPrivateNotes": "Aucun commentaire privé",
+    "LOREKEEPER.Type": "Type",
+    "LOREKEEPER.TitleGM": "Titre MJ",
+    "LOREKEEPER.TitlePlayer": "Titre joueur",
+    "LOREKEEPER.Image": "Image",
+    "LOREKEEPER.DescriptionGM": "Description MJ",
+    "LOREKEEPER.DescriptionPlayer": "Description joueur",
+    "LOREKEEPER.Tags": "Tags",
+    "LOREKEEPER.Permissions": "Permissions",
+    "LOREKEEPER.DefaultPermission": "Permission par défaut",
+    "LOREKEEPER.PermissionNone": "Aucune",
+    "LOREKEEPER.PermissionRead": "Lecture",
+    "LOREKEEPER.NewSession": "Nouvelle session",
+    "LOREKEEPER.Save": "Enregistrer",
+    "LOREKEEPER.Cancel": "Annuler",
+    "LOREKEEPER.DeleteConfirm": "Supprimer cette entrée ?",
+    "LOREKEEPER.NoJournal": "Aucune entrée de journal",
+    "LOREKEEPER.Untitled": "Sans titre",
+    "LOREKEEPER.SessionTitle": "Session {date}",
+    "LOREKEEPER.Type.clue": "Indice",
+    "LOREKEEPER.Type.location": "Lieu",
+    "LOREKEEPER.Type.character": "Personnage",
+    "LOREKEEPER.Type.monster": "Monstre",
+    "LOREKEEPER.Type.object": "Objet"
+  }
+};
 
 function localize(key) {
-  return game.i18n.localize(`LOREKEEPER.${key}`);
+  const fullKey = key.startsWith("LOREKEEPER.") ? key : `LOREKEEPER.${key}`;
+  const translated = game.i18n?.localize(fullKey);
+  if (translated && translated !== fullKey) return translated;
+  const lang = game.i18n?.lang?.startsWith("fr") ? "fr" : "en";
+  return FALLBACK_I18N[lang][fullKey] ?? FALLBACK_I18N.en[fullKey] ?? fullKey;
+}
+
+function formatLocalize(key, data = {}) {
+  return localize(key).replace(/\{([^}]+)\}/g, (_match, property) => data[property] ?? "");
 }
 
 function duplicateData(value) {
@@ -210,7 +316,7 @@ class LorekeeperDataStore {
     const now = Date.now();
     return {
       id: randomID(),
-      title: game.i18n.format("LOREKEEPER.SessionTitle", { date: new Date(now).toLocaleDateString() }),
+      title: formatLocalize("SessionTitle", { date: new Date(now).toLocaleDateString() }),
       content: "",
       date: new Date(now).toISOString().slice(0, 10),
       createdAt: now,
