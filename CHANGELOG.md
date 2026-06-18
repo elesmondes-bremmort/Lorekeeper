@@ -1,12 +1,9 @@
 # Changelog
 
-## 0.1.0
+## 0.0.1
 
-Initial experimental release.
-
-- Added Lorekeeper application.
-- Added Codex entries.
-- Added shared and private journals.
-- Added basic permissions.
-- Added internal entry links.
-- Added image path references without duplication.
+- Reset module from scratch.
+- Added minimal Foundry v13 manifest.
+- Added floating launcher button.
+- Added empty resizable Lorekeeper window.
+- Added French and English localization.

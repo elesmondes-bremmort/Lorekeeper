@@ -1,262 +1,72 @@
 const MODULE_ID = "lorekeeper";
-const DATA_SETTING = "data";
-const WINDOW_STATE_SETTING = "windowState";
-const DETACHED_WINDOW_STATE_SETTING = "detachedWindowState";
-const TEMPLATES = {
-  app: `modules/${MODULE_ID}/templates/lorekeeper-app.hbs`,
-  entry: `modules/${MODULE_ID}/templates/lorekeeper-entry.hbs`,
-  journal: `modules/${MODULE_ID}/templates/lorekeeper-journal.hbs`
-};
-const ENTRY_TYPES = ["clue", "location", "character", "monster", "object"];
-const DEFAULT_IMAGE = "icons/svg/book.svg";
-const DEBOUNCE_MS = 1000;
-const WINDOW_STATE_DEBOUNCE_MS = 300;
-const DEFAULT_WINDOW_STATE = {
-  isOpen: false,
-  left: 120,
-  top: 120,
-  width: 900,
-  height: 650
-};
-const DEFAULT_DETACHED_WINDOW_STATE = {
-  enabled: false,
-  left: 100,
-  top: 100,
-  width: 1000,
-  height: 720
-};
-const DETACHED_MESSAGES = {
-  ready: "LOREKEEPER_READY",
-  dataRequest: "LOREKEEPER_DATA_REQUEST",
-  dataResponse: "LOREKEEPER_DATA_RESPONSE",
-  saveRequest: "LOREKEEPER_SAVE_REQUEST",
-  navigateEntry: "LOREKEEPER_NAVIGATE_ENTRY",
-  close: "LOREKEEPER_CLOSE_DETACHED"
-};
-const FALLBACK_I18N = {
-  en: {
-    "LOREKEEPER.Title": "Lorekeeper",
-    "LOREKEEPER.Codex": "Codex",
-    "LOREKEEPER.Journal": "Journal",
-    "LOREKEEPER.CreateEntry": "Create entry",
-    "LOREKEEPER.Edit": "Edit",
-    "LOREKEEPER.Delete": "Delete",
-    "LOREKEEPER.Search": "Search",
-    "LOREKEEPER.SharedJournal": "Shared journal",
-    "LOREKEEPER.PrivateJournal": "Private journal",
-    "LOREKEEPER.AllTypes": "All types",
-    "LOREKEEPER.NoEntries": "No entries",
-    "LOREKEEPER.NoEntrySelected": "No entry selected",
-    "LOREKEEPER.OpenDetached": "Open in detached window",
-    "LOREKEEPER.DetachedMode": "Detached window mode",
-    "LOREKEEPER.Close": "Close",
-    "LOREKEEPER.PopupBlocked": "The browser blocked the Lorekeeper window. Allow popups for this site.",
-    "LOREKEEPER.WelcomeTitle": "Welcome to Lorekeeper",
-    "LOREKEEPER.WelcomeText": "Select a Codex entry from the left column, or create a new one to start collecting campaign knowledge.",
-    "LOREKEEPER.EditPlayerTitle": "Edit player title",
-    "LOREKEEPER.SharedNotes": "Shared comments",
-    "LOREKEEPER.PrivateNotes": "Private comments",
-    "LOREKEEPER.PlayerPrivateNotes": "Player private comments",
-    "LOREKEEPER.NoPrivateNotes": "No private comments",
-    "LOREKEEPER.Type": "Type",
-    "LOREKEEPER.TitleGM": "GM title",
-    "LOREKEEPER.TitlePlayer": "Player title",
-    "LOREKEEPER.Image": "Image",
-    "LOREKEEPER.DescriptionGM": "GM description",
-    "LOREKEEPER.DescriptionPlayer": "Player description",
-    "LOREKEEPER.Tags": "Tags",
-    "LOREKEEPER.Permissions": "Permissions",
-    "LOREKEEPER.DefaultPermission": "Default permission",
-    "LOREKEEPER.PermissionNone": "None",
-    "LOREKEEPER.PermissionRead": "Read",
-    "LOREKEEPER.NewSession": "New session",
-    "LOREKEEPER.Save": "Save",
-    "LOREKEEPER.Cancel": "Cancel",
-    "LOREKEEPER.DeleteConfirm": "Delete this entry?",
-    "LOREKEEPER.NoJournal": "No journal entries",
-    "LOREKEEPER.Untitled": "Untitled",
-    "LOREKEEPER.SessionTitle": "Session {date}",
-    "LOREKEEPER.Type.clue": "Clue",
-    "LOREKEEPER.Type.location": "Location",
-    "LOREKEEPER.Type.character": "Character",
-    "LOREKEEPER.Type.monster": "Monster",
-    "LOREKEEPER.Type.object": "Object"
-  },
-  fr: {
-    "LOREKEEPER.Title": "Lorekeeper",
-    "LOREKEEPER.Codex": "Codex",
-    "LOREKEEPER.Journal": "Journal",
-    "LOREKEEPER.CreateEntry": "Créer une entrée",
-    "LOREKEEPER.Edit": "Modifier",
-    "LOREKEEPER.Delete": "Supprimer",
-    "LOREKEEPER.Search": "Rechercher",
-    "LOREKEEPER.SharedJournal": "Journal commun",
-    "LOREKEEPER.PrivateJournal": "Journal privé",
-    "LOREKEEPER.AllTypes": "Tous les types",
-    "LOREKEEPER.NoEntries": "Aucune entrée",
-    "LOREKEEPER.NoEntrySelected": "Aucune entrée sélectionnée",
-    "LOREKEEPER.OpenDetached": "Ouvrir dans une fenêtre séparée",
-    "LOREKEEPER.DetachedMode": "Mode fenêtre séparée",
-    "LOREKEEPER.Close": "Fermer",
-    "LOREKEEPER.PopupBlocked": "Le navigateur a bloqué l’ouverture de la fenêtre Lorekeeper. Autorisez les popups pour ce site.",
-    "LOREKEEPER.WelcomeTitle": "Bienvenue dans Lorekeeper",
-    "LOREKEEPER.WelcomeText": "Sélectionnez une entrée du Codex dans la colonne de gauche, ou créez-en une pour commencer à rassembler le savoir de campagne.",
-    "LOREKEEPER.EditPlayerTitle": "Modifier le titre joueur",
-    "LOREKEEPER.SharedNotes": "Commentaires communs",
-    "LOREKEEPER.PrivateNotes": "Commentaires privés",
-    "LOREKEEPER.PlayerPrivateNotes": "Commentaires privés des joueurs",
-    "LOREKEEPER.NoPrivateNotes": "Aucun commentaire privé",
-    "LOREKEEPER.Type": "Type",
-    "LOREKEEPER.TitleGM": "Titre MJ",
-    "LOREKEEPER.TitlePlayer": "Titre joueur",
-    "LOREKEEPER.Image": "Image",
-    "LOREKEEPER.DescriptionGM": "Description MJ",
-    "LOREKEEPER.DescriptionPlayer": "Description joueur",
-    "LOREKEEPER.Tags": "Tags",
-    "LOREKEEPER.Permissions": "Permissions",
-    "LOREKEEPER.DefaultPermission": "Permission par défaut",
-    "LOREKEEPER.PermissionNone": "Aucune",
-    "LOREKEEPER.PermissionRead": "Lecture",
-    "LOREKEEPER.NewSession": "Nouvelle session",
-    "LOREKEEPER.Save": "Enregistrer",
-    "LOREKEEPER.Cancel": "Annuler",
-    "LOREKEEPER.DeleteConfirm": "Supprimer cette entrée ?",
-    "LOREKEEPER.NoJournal": "Aucune entrée de journal",
-    "LOREKEEPER.Untitled": "Sans titre",
-    "LOREKEEPER.SessionTitle": "Session {date}",
-    "LOREKEEPER.Type.clue": "Indice",
-    "LOREKEEPER.Type.location": "Lieu",
-    "LOREKEEPER.Type.character": "Personnage",
-    "LOREKEEPER.Type.monster": "Monstre",
-    "LOREKEEPER.Type.object": "Objet"
+
+class LorekeeperApp extends Application {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      id: "lorekeeper-app",
+      title: game.i18n.localize("LOREKEEPER.Title"),
+      template: `modules/${MODULE_ID}/templates/lorekeeper-app.hbs`,
+      width: 720,
+      height: 480,
+      resizable: true,
+      popOut: true,
+      classes: ["lorekeeper-app"]
+    });
   }
-};
 
-function localize(key) {
-  const fullKey = key.startsWith("LOREKEEPER.") ? key : `LOREKEEPER.${key}`;
-  const translated = game.i18n?.localize(fullKey);
-  if (translated && translated !== fullKey) return translated;
-  const lang = game.i18n?.lang?.startsWith("fr") ? "fr" : "en";
-  return FALLBACK_I18N[lang][fullKey] ?? FALLBACK_I18N.en[fullKey] ?? fullKey;
+  activateListeners(html) {
+    super.activateListeners(html);
+  }
 }
 
-function formatLocalize(key, data = {}) {
-  return localize(key).replace(/\{([^}]+)\}/g, (_match, property) => data[property] ?? "");
+class LorekeeperLauncher {
+  static create() {
+    if (document.getElementById("lorekeeper-launcher")) return;
+
+    const button = document.createElement("button");
+    button.id = "lorekeeper-launcher";
+    button.type = "button";
+    button.title = game.i18n.localize("LOREKEEPER.Open");
+    button.innerHTML = `<i class="fa-solid fa-book-open"></i>`;
+
+    button.addEventListener("click", () => {
+      Lorekeeper.open();
+    });
+
+    document.body.appendChild(button);
+  }
 }
 
-function duplicateData(value) {
-  if (foundry.utils?.deepClone) return foundry.utils.deepClone(value);
-  return foundry.utils.duplicate(value);
-}
+const Lorekeeper = {
+  app: null,
 
-function mergeData(target, source) {
-  return foundry.utils.mergeObject(target, source, { inplace: false });
-}
-
-function randomID() {
-  if (foundry.utils?.randomID) return foundry.utils.randomID();
-  return crypto.randomUUID();
-}
-
-function debounce(fn, delay = DEBOUNCE_MS) {
-  let timeout;
-  return (...args) => {
-    window.clearTimeout(timeout);
-    timeout = window.setTimeout(() => fn(...args), delay);
-  };
-}
-
-function normalizeLorekeeperData(data = {}) {
-  const journals = data.journals ?? {};
-  const notes = data.notes ?? {};
-  return {
-    entries: data.entries ?? {},
-    journals: {
-      shared: journals.shared ?? {},
-      private: journals.private ?? {}
-    },
-    folders: data.folders ?? {},
-    playerFolders: data.playerFolders ?? {},
-    notes: {
-      shared: notes.shared ?? {},
-      private: notes.private ?? {}
+  open() {
+    if (this.app?.rendered) {
+      this.app.bringToTop();
+      return this.app;
     }
-  };
-}
 
-function isGM(user = game.user) {
-  return Boolean(user?.isGM);
-}
+    this.app = new LorekeeperApp();
+    this.app.render(true);
+    return this.app;
+  },
 
-function canReadEntry(entry, user = game.user) {
-  if (!entry || !user) return false;
-  if (isGM(user)) return true;
-  if (entry.permissions?.default === "read") return true;
-  return entry.permissions?.users?.[user.id] === "read";
-}
-
-function entryDisplayTitle(entry, user = game.user) {
-  if (!entry) return "";
-  if (isGM(user)) return entry.titleGM || entry.titlePlayer || localize("Untitled");
-  return entry.titlePlayer || localize("Untitled");
-}
-
-function entryDisplayDescription(entry, user = game.user) {
-  if (!entry) return "";
-  if (isGM(user)) return entry.descriptionGM || entry.descriptionPlayer || "";
-  return entry.descriptionPlayer || "";
-}
-
-function safeImagePath(path) {
-  return path || DEFAULT_IMAGE;
-}
-
-function htmlToElement(html) {
-  if (html instanceof HTMLElement) return html;
-  if (html?.[0] instanceof HTMLElement) return html[0];
-  return html;
-}
-
-function getWindowState() {
-  const state = game.settings.get(MODULE_ID, WINDOW_STATE_SETTING) ?? {};
-  return {
-    ...DEFAULT_WINDOW_STATE,
-    ...state
-  };
-}
-
-async function saveWindowState(position = {}) {
-  const current = getWindowState();
-  const next = {
-    isOpen: typeof position.isOpen === "boolean" ? position.isOpen : current.isOpen,
-    left: Number.isFinite(position.left) ? position.left : current.left,
-    top: Number.isFinite(position.top) ? position.top : current.top,
-    width: Number.isFinite(position.width) ? position.width : current.width,
-    height: Number.isFinite(position.height) ? position.height : current.height
-  };
-  await game.settings.set(MODULE_ID, WINDOW_STATE_SETTING, next);
-}
-
-function openLorekeeperApp(options = {}) {
-  game.lorekeeper ??= {};
-  if (game.lorekeeper.app?.rendered) {
-    game.lorekeeper.app.bringToTop();
-    return game.lorekeeper.app;
+  close() {
+    if (!this.app) return;
+    this.app.close();
+    this.app = null;
   }
+};
 
-  game.lorekeeper.app = new LorekeeperApp(options);
-  game.lorekeeper.app.render(true);
-  saveWindowState({ ...game.lorekeeper.app.position, isOpen: true });
-  return game.lorekeeper.app;
-}
+Hooks.once("init", () => {
+  console.log("Lorekeeper | Init");
+});
 
-function getDetachedWindowState() {
-  const state = game.settings.get(MODULE_ID, DETACHED_WINDOW_STATE_SETTING) ?? {};
-  return {
-    ...DEFAULT_DETACHED_WINDOW_STATE,
-    ...state
-  };
-}
+Hooks.once("ready", () => {
+  console.log("Lorekeeper | Ready");
+  LorekeeperLauncher.create();
+  globalThis.Lorekeeper = Lorekeeper;
+});
 
 async function saveDetachedWindowState(state = {}) {
   const current = getDetachedWindowState();

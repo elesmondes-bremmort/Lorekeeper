@@ -5,198 +5,47 @@
 }
 
 .lorekeeper-shell {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 420px;
+  min-height: 260px;
 }
 
-.lorekeeper-app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 6px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+.lorekeeper-header {
+  padding: 10px 12px;
   background: #18191b;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.lorekeeper-tabs {
-  display: flex;
-  gap: 4px;
-}
-
-.lorekeeper-tabs button,
-.lorekeeper-app button {
-  border-radius: 4px;
-  min-height: 28px;
-  line-height: 1;
-  padding: 5px 10px;
-}
-
-.lorekeeper-tabs button.active {
-  border-color: #d2a85d;
-  background: #9a6f2f;
-  color: #fff;
-  box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.25);
-}
-
-.lorekeeper-compact-button {
-  flex: 0 0 auto;
-  font-size: 12px;
-}
-
-.lorekeeper-workspace {
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  min-height: 0;
-  height: 100%;
-}
-
-.lorekeeper-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-  padding: 8px;
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  background: #24262a;
-}
-
-.lorekeeper-toolbar {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 5px;
-}
-
-.lorekeeper-toolbar input,
-.lorekeeper-toolbar select {
-  height: 30px;
-}
-
-.lorekeeper-entry-list,
-.lorekeeper-journal ol {
-  list-style: none;
+.lorekeeper-header h1 {
   margin: 0;
-  padding: 0;
-  overflow-y: auto;
+  font-size: 18px;
+  color: #f1eee7;
 }
 
-.lorekeeper-entry-card {
-  display: grid;
-  grid-template-columns: 44px 1fr;
-  gap: 8px;
-  align-items: center;
-  min-height: 48px;
-  padding: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.lorekeeper-entry-card + .lorekeeper-entry-card {
-  margin-top: 6px;
-}
-
-.lorekeeper-entry-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.lorekeeper-entry-card img {
-  width: 44px;
-  height: 44px;
-  object-fit: cover;
-  border-radius: 4px;
-  background: #111;
-}
-
-.lorekeeper-entry-card strong,
-.lorekeeper-entry-card span {
-  display: block;
-  overflow-wrap: anywhere;
-}
-
-.lorekeeper-entry-card span,
-.lorekeeper-type,
-.lorekeeper-tags {
-  color: #c8c0b5;
-  font-size: 12px;
-}
-
-.lorekeeper-content {
-  min-width: 0;
-  overflow-y: auto;
-  padding: 12px;
-}
-
-.lorekeeper-detail header,
-.lorekeeper-journal-section header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-}
-
-.lorekeeper-detail h2,
-.lorekeeper-journal-section h2 {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.lorekeeper-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.lorekeeper-hero-image {
-  display: block;
-  max-width: 100%;
-  max-height: 240px;
-  margin: 12px 0;
-  object-fit: contain;
-  border-radius: 6px;
-  background: #161719;
-}
-
-.lorekeeper-rendered {
+.lorekeeper-body {
+  padding: 14px;
   line-height: 1.5;
-  white-space: normal;
 }
 
-.lorekeeper-entry-link {
-  color: #d9b36a;
-  text-decoration: underline;
+#lorekeeper-launcher {
+  position: fixed;
+  right: 18px;
+  bottom: 270px;
+  z-index: 61;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid #8b6f3d;
+  background: rgba(18, 16, 13, 0.95);
+  color: #f2e4c7;
+  font-size: 22px;
   cursor: pointer;
+  box-shadow: 0 0 12px #000;
 }
 
-.lorekeeper-missing-link {
-  color: #a8a8a8;
-  font-style: italic;
-}
-
-.lorekeeper-notes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.lorekeeper-private-review {
-  margin-top: 14px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.lorekeeper-private-review h3 {
-  margin: 0 0 8px;
-  font-size: 15px;
-}
-
-.lorekeeper-private-review article {
-  padding: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+#lorekeeper-launcher:hover {
+  filter: brightness(1.2);
 }
 
 .lorekeeper-private-review article + article {
