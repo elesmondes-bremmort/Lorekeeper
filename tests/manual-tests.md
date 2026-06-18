@@ -7,6 +7,49 @@
 - Enable the module in a world.
 - Verify that no console error appears on load.
 
+## Launcher
+
+- Verify that the floating Lorekeeper button appears.
+- Verify that it is above the Sound System launcher.
+- Verify that the book icon is visible.
+- Click it and verify that Lorekeeper opens.
+- Click it again and verify that no duplicate window is created.
+- Verify that the existing window is brought to the front.
+
+## Window
+
+- Verify that the window is movable.
+- Verify that the window is resizable.
+- Verify that the window is a pop-out application.
+
+## Window Persistence
+
+- Move Lorekeeper.
+- Resize Lorekeeper.
+- Close Lorekeeper.
+- Reopen Lorekeeper.
+- Verify that size and position are preserved.
+
+## Refresh Persistence
+
+- Move Lorekeeper.
+- Press F5.
+- Open Lorekeeper.
+- Verify that the position is preserved.
+
+## Second Screen
+
+- Move Lorekeeper to a secondary screen.
+- Press F5.
+- Open Lorekeeper.
+- Verify that it returns exactly to its last position.
+
+## Multi-User Window State
+
+- Configure the window position as GM.
+- Configure a different window position as a player.
+- Verify that each user keeps their own window settings.
+
 ## Manifest / Forge
 
 - Verify that `module.json` is valid.

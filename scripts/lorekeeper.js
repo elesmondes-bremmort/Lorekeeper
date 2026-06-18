@@ -1,5 +1,6 @@
 const MODULE_ID = "lorekeeper";
 const DATA_SETTING = "data";
+const WINDOW_STATE_SETTING = "windowState";
 const TEMPLATES = {
   app: `modules/${MODULE_ID}/templates/lorekeeper-app.hbs`,
   entry: `modules/${MODULE_ID}/templates/lorekeeper-entry.hbs`,
@@ -8,6 +9,13 @@ const TEMPLATES = {
 const ENTRY_TYPES = ["clue", "location", "character", "monster", "object"];
 const DEFAULT_IMAGE = "icons/svg/book.svg";
 const DEBOUNCE_MS = 1000;
+const WINDOW_STATE_DEBOUNCE_MS = 300;
+const DEFAULT_WINDOW_STATE = {
+  left: 120,
+  top: 120,
+  width: 900,
+  height: 650
+};
 
 function localize(key) {
   return game.i18n.localize(`LOREKEEPER.${key}`);
@@ -86,6 +94,37 @@ function htmlToElement(html) {
   return html;
 }
 
+function getWindowState() {
+  const state = game.settings.get(MODULE_ID, WINDOW_STATE_SETTING) ?? {};
+  return {
+    ...DEFAULT_WINDOW_STATE,
+    ...state
+  };
+}
+
+async function saveWindowState(position = {}) {
+  const current = getWindowState();
+  const next = {
+    left: Number.isFinite(position.left) ? position.left : current.left,
+    top: Number.isFinite(position.top) ? position.top : current.top,
+    width: Number.isFinite(position.width) ? position.width : current.width,
+    height: Number.isFinite(position.height) ? position.height : current.height
+  };
+  await game.settings.set(MODULE_ID, WINDOW_STATE_SETTING, next);
+}
+
+function openLorekeeperApp(options = {}) {
+  game.lorekeeper ??= {};
+  if (game.lorekeeper.app?.rendered) {
+    game.lorekeeper.app.bringToTop();
+    return game.lorekeeper.app;
+  }
+
+  game.lorekeeper.app = new LorekeeperApp(options);
+  game.lorekeeper.app.render(true);
+  return game.lorekeeper.app;
+}
+
 class LorekeeperDataStore {
   static get() {
     return normalizeLorekeeperData(duplicateData(game.settings.get(MODULE_ID, DATA_SETTING)));
@@ -145,7 +184,7 @@ class LorekeeperDataStore {
 
 class LorekeeperApp extends Application {
   constructor(options = {}) {
-    super(options);
+    super(mergeData(getWindowState(), options));
     this.activeTab = options.activeTab ?? "codex";
     this.selectedEntryId = options.entryId ?? null;
     this.selectedSharedJournalId = null;
@@ -156,6 +195,7 @@ class LorekeeperApp extends Application {
     this._saveSharedNoteDebounced = debounce((entryId, content) => this._saveSharedNote(entryId, content));
     this._savePrivateNoteDebounced = debounce((entryId, content) => this._savePrivateNote(entryId, content));
     this._saveJournalDebounced = debounce((scope, ownerId, journalId, formData) => this._saveJournal(scope, ownerId, journalId, formData));
+    this._saveWindowStateDebounced = debounce((position) => saveWindowState(position), WINDOW_STATE_DEBOUNCE_MS);
   }
 
   static get defaultOptions() {
@@ -163,12 +203,28 @@ class LorekeeperApp extends Application {
       id: "lorekeeper-app",
       title: localize("Title"),
       template: TEMPLATES.app,
-      width: 980,
-      height: 680,
+      width: DEFAULT_WINDOW_STATE.width,
+      height: DEFAULT_WINDOW_STATE.height,
       resizable: true,
       popOut: true,
       classes: ["lorekeeper-app"]
     });
+  }
+
+  setPosition(position = {}) {
+    const resolved = super.setPosition(position);
+    const next = {
+      ...this.position,
+      ...resolved
+    };
+    if (this.rendered) this._saveWindowStateDebounced(next);
+    return resolved;
+  }
+
+  async close(options = {}) {
+    await saveWindowState(this.position);
+    if (game.lorekeeper?.app === this) game.lorekeeper.app = null;
+    return super.close(options);
   }
 
   async getData() {
@@ -593,6 +649,20 @@ class LorekeeperEntryEditor extends Application {
   }
 }
 
+class LorekeeperLauncher {
+  static create() {
+    if (document.getElementById("lorekeeper-launcher")) return;
+
+    const button = document.createElement("button");
+    button.id = "lorekeeper-launcher";
+    button.type = "button";
+    button.title = localize("Title");
+    button.innerHTML = `<i class="fa-solid fa-book-open"></i>`;
+    button.addEventListener("click", () => openLorekeeperApp());
+    document.body.appendChild(button);
+  }
+}
+
 Hooks.once("init", async () => {
   game.settings.register(MODULE_ID, DATA_SETTING, {
     scope: "world",
@@ -606,10 +676,17 @@ Hooks.once("init", async () => {
       notes: {}
     }
   });
+  game.settings.register(MODULE_ID, WINDOW_STATE_SETTING, {
+    scope: "client",
+    config: false,
+    type: Object,
+    default: DEFAULT_WINDOW_STATE
+  });
   await loadTemplates(Object.values(TEMPLATES));
 });
 
 Hooks.once("ready", async () => {
+  LorekeeperLauncher.create();
   game.socket.on(`module.${MODULE_ID}`, async (message) => {
     if (!isGM() || message?.action !== "setData") return;
     await game.settings.set(MODULE_ID, DATA_SETTING, normalizeLorekeeperData(message.data));
@@ -627,14 +704,16 @@ Hooks.on("renderSettings", (_app, html) => {
   button.type = "button";
   button.className = "lorekeeper-open-button";
   button.innerHTML = `<i class="fas fa-book-open"></i> ${localize("Title")}`;
-  button.addEventListener("click", () => new LorekeeperApp().render(true));
+  button.addEventListener("click", () => openLorekeeperApp());
   const target = root.querySelector("#settings-game") ?? root.querySelector(".settings-sidebar") ?? root;
   target.appendChild(button);
 });
 
 globalThis.Lorekeeper = {
   LorekeeperApp,
+  LorekeeperLauncher,
   LorekeeperDataStore,
+  openApp: openLorekeeperApp,
   canReadEntry,
   isGM
 };
