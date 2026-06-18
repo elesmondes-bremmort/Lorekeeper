@@ -7,6 +7,18 @@
 - Enable the module in a world.
 - Verify that no console error appears on load.
 
+## Translations
+
+- Verify that the interface no longer displays raw `LOREKEEPER.*` keys.
+- Test the interface in French.
+- Test the interface in English if possible.
+
+## UI
+
+- Verify that the interface is more readable.
+- Verify the empty states.
+- Verify the Codex and Journal tabs.
+
 ## Launcher
 
 - Verify that the floating Lorekeeper button appears.
@@ -50,12 +62,44 @@
 - Configure a different window position as a player.
 - Verify that each user keeps their own window settings.
 
+## Integrated Window Restore
+
+- Open Lorekeeper.
+- Move the window.
+- Resize the window.
+- Refresh Foundry.
+- Verify that Lorekeeper reopens if it was open.
+- Verify that position and size are restored without recentering.
+
+## Detached Browser Window
+
+- Click `Open in detached window`.
+- Verify that a real browser window opens.
+- Move that window to a secondary screen.
+- Verify that the Codex is readable.
+- Verify that the Journal is editable.
+- Save a note.
+- Verify that the data is visible in the integrated window.
+- Close the detached window.
+- Verify that no blocking console error appears.
+
+## Popup Blocked
+
+- Test with popups blocked.
+- Verify that a clear notification appears.
+
+## Detached Performance
+
+- Verify that there is no server call on every keystroke.
+- Verify that there is no polling loop.
+- Verify that saves are debounced or explicitly triggered.
+
 ## Manifest / Forge
 
 - Verify that `module.json` is valid.
-- Verify that `manifest` points to `releases/latest/download/module.json`.
-- Verify that `download` points to `releases/latest/download/lorekeeper.zip`.
-- Verify that the zip contains `module.json` at the root.
+- Verify that `manifest` points to `raw.githubusercontent.com/elesmondes-bremmort/Lorekeeper/main/module.json`.
+- Verify that `download` points to `archive/refs/heads/main.zip`.
+- Verify that release URLs are not used until release assets exist.
 
 ## Test ZIP
 
@@ -68,8 +112,8 @@
 ## Test manifest
 
 - Verify that `module.json` contains:
-  - `manifest` pointing to `releases/latest/download/module.json`.
-  - `download` pointing to `releases/latest/download/lorekeeper.zip`.
+  - `manifest` pointing to `raw.githubusercontent.com/elesmondes-bremmort/Lorekeeper/main/module.json`.
+  - `download` pointing to `archive/refs/heads/main.zip`.
 
 ## Test release
 
@@ -82,7 +126,7 @@
 
 ## Test Foundry / Forge
 
-- Install the module with `https://github.com/elesmondes-bremmort/Lorekeeper/releases/latest/download/module.json`.
+- Install the module with `https://raw.githubusercontent.com/elesmondes-bremmort/Lorekeeper/main/module.json`.
 - Verify that installation succeeds.
 - Enable the module in a world.
 - Verify that there is no blocking console error.

@@ -13,18 +13,19 @@ It stores its own world-scoped data and does not depend on Actors, Items, Journa
 - Shared and private comments on visible entries.
 - Shared campaign journal and per-player private journals.
 - Internal entry links using `[[entry:ID]]` with click navigation, Ctrl-click pop-out, and hover preview.
+- Floating launcher, persistent integrated window, and experimental detached browser window.
 - Image path references through Foundry file paths without duplicating image data.
 - English and French localization.
 
 ## Installation
 
-Manifest URL:
+Development manifest URL:
 
 ```text
-https://github.com/elesmondes-bremmort/Lorekeeper/releases/latest/download/module.json
+https://raw.githubusercontent.com/elesmondes-bremmort/Lorekeeper/main/module.json
 ```
 
-Foundry installs from `module.json` and downloads `lorekeeper.zip` from the latest GitHub release.
+Foundry installs from `module.json` and downloads the current `main` archive for development installs. Do not switch this to `releases/latest/download` until a GitHub Release exists with both `module.json` and `lorekeeper.zip` attached.
 
 ## Manual Installation
 

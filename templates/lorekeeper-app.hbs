@@ -1,8 +1,11 @@
 <section class="lorekeeper-shell">
-  <nav class="lorekeeper-tabs">
-    <button type="button" class="{{#if isCodexTab}}active{{/if}}" data-tab-target="codex">{{localize "LOREKEEPER.Codex"}}</button>
-    <button type="button" class="{{#if isJournalTab}}active{{/if}}" data-tab-target="journal">{{localize "LOREKEEPER.Journal"}}</button>
-  </nav>
+  <header class="lorekeeper-app-header">
+    <nav class="lorekeeper-tabs">
+      <button type="button" class="{{#if isCodexTab}}active{{/if}}" data-tab-target="codex">{{localize "LOREKEEPER.Codex"}}</button>
+      <button type="button" class="{{#if isJournalTab}}active{{/if}}" data-tab-target="journal">{{localize "LOREKEEPER.Journal"}}</button>
+    </nav>
+    <button type="button" class="lorekeeper-compact-button" data-action="open-detached"><i class="fas fa-external-link-alt"></i> {{localize "LOREKEEPER.OpenDetached"}}</button>
+  </header>
 
   {{#if isCodexTab}}
   <div class="lorekeeper-workspace">
@@ -81,7 +84,10 @@
         {{/if}}
       </article>
       {{else}}
-      <div class="lorekeeper-empty-panel">{{localize "LOREKEEPER.NoEntrySelected"}}</div>
+      <div class="lorekeeper-empty-panel">
+        <h2>{{localize "LOREKEEPER.WelcomeTitle"}}</h2>
+        <p>{{localize "LOREKEEPER.WelcomeText"}}</p>
+      </div>
       {{/if}}
     </main>
   </div>

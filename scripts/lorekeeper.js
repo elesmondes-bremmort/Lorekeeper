@@ -1,6 +1,7 @@
 const MODULE_ID = "lorekeeper";
 const DATA_SETTING = "data";
 const WINDOW_STATE_SETTING = "windowState";
+const DETACHED_WINDOW_STATE_SETTING = "detachedWindowState";
 const TEMPLATES = {
   app: `modules/${MODULE_ID}/templates/lorekeeper-app.hbs`,
   entry: `modules/${MODULE_ID}/templates/lorekeeper-entry.hbs`,
@@ -11,10 +12,26 @@ const DEFAULT_IMAGE = "icons/svg/book.svg";
 const DEBOUNCE_MS = 1000;
 const WINDOW_STATE_DEBOUNCE_MS = 300;
 const DEFAULT_WINDOW_STATE = {
+  isOpen: false,
   left: 120,
   top: 120,
   width: 900,
   height: 650
+};
+const DEFAULT_DETACHED_WINDOW_STATE = {
+  enabled: false,
+  left: 100,
+  top: 100,
+  width: 1000,
+  height: 720
+};
+const DETACHED_MESSAGES = {
+  ready: "LOREKEEPER_READY",
+  dataRequest: "LOREKEEPER_DATA_REQUEST",
+  dataResponse: "LOREKEEPER_DATA_RESPONSE",
+  saveRequest: "LOREKEEPER_SAVE_REQUEST",
+  navigateEntry: "LOREKEEPER_NAVIGATE_ENTRY",
+  close: "LOREKEEPER_CLOSE_DETACHED"
 };
 
 function localize(key) {
@@ -105,6 +122,7 @@ function getWindowState() {
 async function saveWindowState(position = {}) {
   const current = getWindowState();
   const next = {
+    isOpen: typeof position.isOpen === "boolean" ? position.isOpen : current.isOpen,
     left: Number.isFinite(position.left) ? position.left : current.left,
     top: Number.isFinite(position.top) ? position.top : current.top,
     width: Number.isFinite(position.width) ? position.width : current.width,
@@ -122,7 +140,27 @@ function openLorekeeperApp(options = {}) {
 
   game.lorekeeper.app = new LorekeeperApp(options);
   game.lorekeeper.app.render(true);
+  saveWindowState({ ...game.lorekeeper.app.position, isOpen: true });
   return game.lorekeeper.app;
+}
+
+function getDetachedWindowState() {
+  const state = game.settings.get(MODULE_ID, DETACHED_WINDOW_STATE_SETTING) ?? {};
+  return {
+    ...DEFAULT_DETACHED_WINDOW_STATE,
+    ...state
+  };
+}
+
+async function saveDetachedWindowState(state = {}) {
+  const current = getDetachedWindowState();
+  await game.settings.set(MODULE_ID, DETACHED_WINDOW_STATE_SETTING, {
+    enabled: typeof state.enabled === "boolean" ? state.enabled : current.enabled,
+    left: Number.isFinite(state.left) ? state.left : current.left,
+    top: Number.isFinite(state.top) ? state.top : current.top,
+    width: Number.isFinite(state.width) ? state.width : current.width,
+    height: Number.isFinite(state.height) ? state.height : current.height
+  });
 }
 
 class LorekeeperDataStore {
@@ -215,14 +253,15 @@ class LorekeeperApp extends Application {
     const resolved = super.setPosition(position);
     const next = {
       ...this.position,
-      ...resolved
+      ...resolved,
+      isOpen: true
     };
     if (this.rendered) this._saveWindowStateDebounced(next);
     return resolved;
   }
 
   async close(options = {}) {
-    await saveWindowState(this.position);
+    await saveWindowState({ ...this.position, isOpen: false });
     if (game.lorekeeper?.app === this) game.lorekeeper.app = null;
     return super.close(options);
   }
@@ -276,6 +315,7 @@ class LorekeeperApp extends Application {
       typeFilter: this.typeFilter,
       search: this.search,
       users,
+      detachedAvailable: true,
       journal: {
         shared: sharedJournals,
         selectedShared: data.journals.shared[this.selectedSharedJournalId] ?? null,
@@ -308,6 +348,7 @@ class LorekeeperApp extends Application {
       this.render();
     });
     root.querySelector("[data-action='create-entry']")?.addEventListener("click", () => this._createEntry());
+    root.querySelector("[data-action='open-detached']")?.addEventListener("click", () => LorekeeperDetached.open());
     root.querySelectorAll("[data-entry-id]").forEach((element) => {
       element.addEventListener("click", (event) => {
         const link = event.target.closest(".lorekeeper-entry-link");
@@ -557,6 +598,303 @@ class LorekeeperApp extends Application {
   }
 }
 
+class LorekeeperDetached {
+  static open({ restore = false } = {}) {
+    game.lorekeeper ??= {};
+    const state = getDetachedWindowState();
+    if (game.lorekeeper.detachedWindow && !game.lorekeeper.detachedWindow.closed) {
+      game.lorekeeper.detachedWindow.focus();
+      this.sendData();
+      return game.lorekeeper.detachedWindow;
+    }
+
+    const features = [
+      `popup=yes`,
+      `left=${Math.round(state.left)}`,
+      `top=${Math.round(state.top)}`,
+      `width=${Math.round(state.width)}`,
+      `height=${Math.round(state.height)}`,
+      "resizable=yes",
+      "scrollbars=yes"
+    ].join(",");
+    const detached = window.open("", "LorekeeperDetached", features);
+    if (!detached) {
+      ui.notifications?.warn(localize("PopupBlocked"));
+      if (restore) saveDetachedWindowState({ enabled: false });
+      return null;
+    }
+
+    game.lorekeeper.detachedWindow = detached;
+    detached.document.open();
+    detached.document.write(this.buildHtml());
+    detached.document.close();
+    saveDetachedWindowState({ enabled: true, left: state.left, top: state.top, width: state.width, height: state.height });
+    return detached;
+  }
+
+  static buildHtml() {
+    const cssHref = new URL(`modules/${MODULE_ID}/styles/lorekeeper.css`, window.location.href).href;
+    const labels = {
+      title: localize("Title"),
+      codex: localize("Codex"),
+      journal: localize("Journal"),
+      search: localize("Search"),
+      allTypes: localize("AllTypes"),
+      noEntries: localize("NoEntries"),
+      noEntrySelected: localize("NoEntrySelected"),
+      sharedNotes: localize("SharedNotes"),
+      privateNotes: localize("PrivateNotes"),
+      sharedJournal: localize("SharedJournal"),
+      privateJournal: localize("PrivateJournal"),
+      newSession: localize("NewSession"),
+      save: localize("Save"),
+      close: localize("Close"),
+      detachedMode: localize("DetachedMode")
+    };
+    const messages = JSON.stringify(DETACHED_MESSAGES);
+    const labelJson = JSON.stringify(labels);
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${Handlebars.escapeExpression(localize("Title"))}</title>
+  <link rel="stylesheet" href="${cssHref}">
+  <style>
+    body { margin: 0; background: #202124; color: #f1eee7; font-family: sans-serif; }
+    .lorekeeper-detached { height: 100vh; }
+    .lorekeeper-detached-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; background: #17181a; border-bottom: 1px solid rgba(255,255,255,.12); }
+    .lorekeeper-detached-title h1 { margin: 0; font-size: 16px; }
+    .lorekeeper-detached-title button { width: 32px; height: 32px; }
+    .lorekeeper-detached .lorekeeper-shell { height: calc(100vh - 49px); }
+    .lorekeeper-detached textarea { min-height: 120px; }
+  </style>
+</head>
+<body>
+  <div class="lorekeeper-detached">
+    <header class="lorekeeper-detached-title">
+      <h1>${Handlebars.escapeExpression(localize("DetachedMode"))}</h1>
+      <button type="button" id="lk-close" title="${Handlebars.escapeExpression(localize("Close"))}">x</button>
+    </header>
+    <section class="lorekeeper-shell">
+      <nav class="lorekeeper-tabs">
+        <button type="button" class="active" data-tab="codex"></button>
+        <button type="button" data-tab="journal"></button>
+      </nav>
+      <div id="lk-root"></div>
+    </section>
+  </div>
+  <script>
+    const MSG = ${messages};
+    const L = ${labelJson};
+    let state = { tab: "codex", search: "", type: "all", selectedEntryId: null, selectedSharedId: null, selectedPrivateId: null, data: null };
+    let saveTimer = null;
+    let searchTimer = null;
+    const root = document.getElementById("lk-root");
+    const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+    const post = (type, payload = {}) => window.opener?.postMessage({ source: "lorekeeper-detached", type, payload }, "*");
+    const requestData = () => post(MSG.dataRequest);
+    const debounceSave = (payload) => {
+      window.clearTimeout(saveTimer);
+      saveTimer = window.setTimeout(() => post(MSG.saveRequest, payload), 700);
+    };
+    const renderLinks = (content = "") => esc(content).replace(/\\[\\[entry:([^\\]]+)\\]\\]/g, (_m, id) => {
+      const entry = state.data?.entries?.find((item) => item.id === id);
+      return entry ? '<a href="#" data-entry-link="' + esc(id) + '">' + esc(entry.title) + '</a>' : '<span class="lorekeeper-missing-link">[[entry:' + esc(id) + ']]</span>';
+    }).replace(/\\n/g, "<br>");
+    function setTab(tab) {
+      state.tab = tab;
+      document.querySelectorAll("[data-tab]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.tab === tab);
+      });
+      render();
+    }
+    function render() {
+      if (!state.data) {
+        root.innerHTML = '<div class="lorekeeper-empty-panel">' + esc(L.noEntrySelected) + '</div>';
+        return;
+      }
+      if (state.tab === "journal") renderJournal();
+      else renderCodex();
+    }
+    function filteredEntries() {
+      const query = state.search.toLocaleLowerCase();
+      return state.data.entries.filter((entry) => {
+        if (state.type !== "all" && entry.type !== state.type) return false;
+        if (!query) return true;
+        return [entry.title, entry.description, entry.typeLabel, entry.tagsDisplay].join(" ").toLocaleLowerCase().includes(query);
+      });
+    }
+    function renderCodex() {
+      const entries = filteredEntries();
+      if (!state.selectedEntryId || !entries.some((entry) => entry.id === state.selectedEntryId)) state.selectedEntryId = entries[0]?.id ?? null;
+      const selected = state.data.entries.find((entry) => entry.id === state.selectedEntryId);
+      const typeOptions = ['<option value="all">' + esc(L.allTypes) + '</option>'].concat(state.data.entryTypes.map((type) => '<option value="' + esc(type.value) + '"' + (state.type === type.value ? " selected" : "") + '>' + esc(type.label) + '</option>')).join("");
+      root.innerHTML = '<div class="lorekeeper-workspace"><aside class="lorekeeper-sidebar"><div class="lorekeeper-toolbar"><input type="search" id="lk-search" value="' + esc(state.search) + '" placeholder="' + esc(L.search) + '"><select id="lk-type">' + typeOptions + '</select></div><ol class="lorekeeper-entry-list">' + (entries.map((entry) => '<li class="lorekeeper-entry-card" data-entry-id="' + esc(entry.id) + '"><img src="' + esc(entry.imageDisplay) + '" alt=""><div><strong>' + esc(entry.title) + '</strong><span>' + esc(entry.typeLabel) + '</span></div></li>').join("") || '<li class="lorekeeper-empty">' + esc(L.noEntries) + '</li>') + '</ol></aside><main class="lorekeeper-content">' + (selected ? renderEntry(selected) : renderWelcome()) + '</main></div>';
+      document.getElementById("lk-search")?.addEventListener("input", (event) => { state.search = event.target.value; window.clearTimeout(searchTimer); searchTimer = window.setTimeout(render, 250); });
+      document.getElementById("lk-type")?.addEventListener("change", (event) => { state.type = event.target.value; render(); });
+      root.querySelectorAll("[data-entry-id]").forEach((element) => element.addEventListener("click", () => { state.selectedEntryId = element.dataset.entryId; render(); }));
+      root.querySelectorAll("[data-entry-link]").forEach((element) => element.addEventListener("click", (event) => { event.preventDefault(); state.selectedEntryId = element.dataset.entryLink; post(MSG.navigateEntry, { entryId: state.selectedEntryId }); render(); }));
+      root.querySelectorAll("[data-note]").forEach((textarea) => {
+        textarea.addEventListener("blur", (event) => debounceSave({ kind: event.target.dataset.note, entryId: event.target.dataset.entryId, content: event.target.value }));
+      });
+    }
+    function renderWelcome() {
+      return '<div class="lorekeeper-empty-panel"><h2>' + esc(L.title) + '</h2><p>' + esc(L.noEntrySelected) + '</p></div>';
+    }
+    function renderEntry(entry) {
+      return '<article class="lorekeeper-detail"><header><div><span class="lorekeeper-type">' + esc(entry.typeLabel) + '</span><h2>' + esc(entry.title) + '</h2></div></header><img class="lorekeeper-hero-image" src="' + esc(entry.imageDisplay) + '" alt=""><div class="lorekeeper-rendered">' + renderLinks(entry.description) + '</div><p class="lorekeeper-tags">' + esc(entry.tagsDisplay) + '</p><section class="lorekeeper-notes"><label><span>' + esc(L.sharedNotes) + '</span><textarea data-note="sharedNote" data-entry-id="' + esc(entry.id) + '">' + esc(entry.sharedNote?.content) + '</textarea></label><label><span>' + esc(L.privateNotes) + '</span><textarea data-note="privateNote" data-entry-id="' + esc(entry.id) + '">' + esc(entry.privateNote?.content) + '</textarea></label></section></article>';
+    }
+    function renderJournal() {
+      const shared = state.data.journal.shared;
+      const privateEntries = state.data.journal.privateEntries;
+      if (!state.selectedSharedId) state.selectedSharedId = shared[0]?.id ?? null;
+      if (!state.selectedPrivateId) state.selectedPrivateId = privateEntries[0]?.id ?? null;
+      const selectedShared = shared.find((entry) => entry.id === state.selectedSharedId);
+      const selectedPrivate = privateEntries.find((entry) => entry.id === state.selectedPrivateId);
+      root.innerHTML = '<div class="lorekeeper-journal">' + journalSection("shared", L.sharedJournal, shared, selectedShared) + journalSection("private", L.privateJournal, privateEntries, selectedPrivate) + '</div>';
+      root.querySelectorAll("[data-journal-select]").forEach((element) => element.addEventListener("click", () => { if (element.dataset.scope === "shared") state.selectedSharedId = element.dataset.journalSelect; else state.selectedPrivateId = element.dataset.journalSelect; render(); }));
+      root.querySelectorAll("[data-create-journal]").forEach((button) => button.addEventListener("click", () => post(MSG.saveRequest, { kind: "createJournal", scope: button.dataset.createJournal })));
+      root.querySelectorAll("[data-journal-form]").forEach((form) => {
+        form.addEventListener("change", () => saveJournal(form));
+        form.addEventListener("blur", () => saveJournal(form), true);
+      });
+    }
+    function journalSection(scope, title, entries, selected) {
+      return '<section class="lorekeeper-journal-section"><header><h2>' + esc(title) + '</h2><button type="button" data-create-journal="' + scope + '">' + esc(L.newSession) + '</button></header><div class="lorekeeper-journal-grid"><ol>' + (entries.map((entry) => '<li data-scope="' + scope + '" data-journal-select="' + esc(entry.id) + '"><strong>' + esc(entry.title) + '</strong><span>' + esc(entry.updatedByName || entry.updatedBy) + '</span></li>').join("") || '<li class="lorekeeper-empty">' + esc(L.noEntries) + '</li>') + '</ol>' + (selected ? '<form data-journal-form data-scope="' + scope + '" data-journal-id="' + esc(selected.id) + '"><input name="title" type="text" value="' + esc(selected.title) + '"><input name="date" type="date" value="' + esc(selected.date) + '"><textarea name="content">' + esc(selected.content) + '</textarea></form>' : "") + '</div></section>';
+    }
+    function saveJournal(form) {
+      const data = new FormData(form);
+      debounceSave({ kind: "journal", scope: form.dataset.scope, journalId: form.dataset.journalId, title: data.get("title"), date: data.get("date"), content: data.get("content") });
+    }
+    document.querySelector('[data-tab="codex"]').textContent = L.codex;
+    document.querySelector('[data-tab="journal"]').textContent = L.journal;
+    document.querySelectorAll("[data-tab]").forEach((button) => button.addEventListener("click", () => setTab(button.dataset.tab)));
+    document.getElementById("lk-close").addEventListener("click", () => { post(MSG.close, snapshot()); window.close(); });
+    window.addEventListener("beforeunload", () => post(MSG.close, snapshot()));
+    window.addEventListener("message", (event) => {
+      if (event.data?.source !== "lorekeeper-main") return;
+      if (event.data.type === MSG.dataResponse) {
+        state.data = event.data.payload;
+        render();
+      }
+    });
+    function snapshot() {
+      return { left: window.screenX, top: window.screenY, width: window.outerWidth, height: window.outerHeight };
+    }
+    post(MSG.ready, snapshot());
+    requestData();
+  </script>
+</body>
+</html>`;
+  }
+
+  static prepareData() {
+    const data = LorekeeperDataStore.get();
+    const app = game.lorekeeper?.app ?? new LorekeeperApp();
+    const entries = Object.values(data.entries)
+      .filter((entry) => canReadEntry(entry, game.user))
+      .map((entry) => app._prepareEntry(entry, data))
+      .sort((a, b) => a.title.localeCompare(b.title));
+    const decorateJournal = (entry) => ({
+      ...entry,
+      updatedByName: game.users.get(entry.updatedBy)?.name ?? entry.updatedBy
+    });
+    return {
+      entries,
+      entryTypes: ENTRY_TYPES.map((type) => ({ value: type, label: localize(`Type.${type}`) })),
+      journal: {
+        shared: Object.values(data.journals.shared).map(decorateJournal).sort((a, b) => b.updatedAt - a.updatedAt),
+        privateEntries: Object.values(data.journals.private[game.user.id] ?? {}).map(decorateJournal).sort((a, b) => b.updatedAt - a.updatedAt)
+      }
+    };
+  }
+
+  static sendData() {
+    const detached = game.lorekeeper?.detachedWindow;
+    if (!detached || detached.closed) return;
+    detached.postMessage({
+      source: "lorekeeper-main",
+      type: DETACHED_MESSAGES.dataResponse,
+      payload: this.prepareData()
+    }, "*");
+  }
+
+  static async handleMessage(event) {
+    const message = event.data;
+    if (message?.source !== "lorekeeper-detached") return;
+    game.lorekeeper ??= {};
+    if (game.lorekeeper?.detachedWindow && event.source !== game.lorekeeper.detachedWindow) return;
+
+    if (message.type === DETACHED_MESSAGES.ready || message.type === DETACHED_MESSAGES.dataRequest) {
+      if (event.source) game.lorekeeper.detachedWindow = event.source;
+      if (message.payload) await saveDetachedWindowState({ enabled: true, ...message.payload });
+      this.sendData();
+      return;
+    }
+
+    if (message.type === DETACHED_MESSAGES.navigateEntry) {
+      const app = openLorekeeperApp({ entryId: message.payload?.entryId, activeTab: "codex" });
+      app.selectedEntryId = message.payload?.entryId ?? app.selectedEntryId;
+      app.activeTab = "codex";
+      app.render();
+      return;
+    }
+
+    if (message.type === DETACHED_MESSAGES.close) {
+      await saveDetachedWindowState({ enabled: false, ...(message.payload ?? {}) });
+      return;
+    }
+
+    if (message.type !== DETACHED_MESSAGES.saveRequest) return;
+    await this.handleSave(message.payload ?? {});
+    game.lorekeeper?.app?.render();
+    this.sendData();
+  }
+
+  static async handleSave(payload) {
+    if (payload.kind === "sharedNote") {
+      if (!canReadEntry(LorekeeperDataStore.get().entries[payload.entryId], game.user)) return;
+      await LorekeeperDataStore.update((data) => {
+        data.notes.shared[payload.entryId] = { content: payload.content ?? "", updatedAt: Date.now(), updatedBy: game.user.id };
+      });
+      return;
+    }
+    if (payload.kind === "privateNote") {
+      if (!canReadEntry(LorekeeperDataStore.get().entries[payload.entryId], game.user)) return;
+      await LorekeeperDataStore.update((data) => {
+        data.notes.private[payload.entryId] ??= {};
+        data.notes.private[payload.entryId][game.user.id] = { content: payload.content ?? "", updatedAt: Date.now(), updatedBy: game.user.id };
+      });
+      return;
+    }
+    if (payload.kind === "createJournal") {
+      const entry = LorekeeperDataStore.createJournalEntry();
+      await LorekeeperDataStore.update((data) => {
+        if (payload.scope === "shared") data.journals.shared[entry.id] = entry;
+        else {
+          data.journals.private[game.user.id] ??= {};
+          data.journals.private[game.user.id][entry.id] = entry;
+        }
+      });
+      return;
+    }
+    if (payload.kind === "journal") {
+      await LorekeeperDataStore.update((data) => {
+        const collection = payload.scope === "shared" ? data.journals.shared : data.journals.private[game.user.id];
+        if (!collection?.[payload.journalId]) return;
+        collection[payload.journalId] = {
+          ...collection[payload.journalId],
+          title: payload.title ?? "",
+          date: payload.date ?? "",
+          content: payload.content ?? "",
+          updatedAt: Date.now(),
+          updatedBy: game.user.id
+        };
+      });
+    }
+  }
+}
+
 class LorekeeperEntryEditor extends Application {
   constructor(options = {}) {
     super(options);
@@ -682,11 +1020,18 @@ Hooks.once("init", async () => {
     type: Object,
     default: DEFAULT_WINDOW_STATE
   });
+  game.settings.register(MODULE_ID, DETACHED_WINDOW_STATE_SETTING, {
+    scope: "client",
+    config: false,
+    type: Object,
+    default: DEFAULT_DETACHED_WINDOW_STATE
+  });
   await loadTemplates(Object.values(TEMPLATES));
 });
 
 Hooks.once("ready", async () => {
   LorekeeperLauncher.create();
+  window.addEventListener("message", (event) => LorekeeperDetached.handleMessage(event));
   game.socket.on(`module.${MODULE_ID}`, async (message) => {
     if (!isGM() || message?.action !== "setData") return;
     await game.settings.set(MODULE_ID, DATA_SETTING, normalizeLorekeeperData(message.data));
@@ -695,6 +1040,8 @@ Hooks.once("ready", async () => {
     const data = LorekeeperDataStore.get();
     await LorekeeperDataStore.set(data);
   }
+  if (getWindowState().isOpen) openLorekeeperApp();
+  if (getDetachedWindowState().enabled) LorekeeperDetached.open({ restore: true });
 });
 
 Hooks.on("renderSettings", (_app, html) => {
@@ -711,6 +1058,7 @@ Hooks.on("renderSettings", (_app, html) => {
 
 globalThis.Lorekeeper = {
   LorekeeperApp,
+  LorekeeperDetached,
   LorekeeperLauncher,
   LorekeeperDataStore,
   openApp: openLorekeeperApp,
