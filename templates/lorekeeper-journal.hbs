@@ -1,0 +1,52 @@
+<section class="lorekeeper-journal-section">
+  <header>
+    <h2>{{localize "LOREKEEPER.SharedJournal"}}</h2>
+    <button type="button" data-action="create-shared-journal"><i class="fas fa-plus"></i> {{localize "LOREKEEPER.NewSession"}}</button>
+  </header>
+  <div class="lorekeeper-journal-grid">
+    <ol>
+      {{#each journal.shared}}
+      <li data-shared-journal-id="{{id}}"><strong>{{title}}</strong><span>{{updatedBy}}</span></li>
+      {{else}}
+      <li class="lorekeeper-empty">{{localize "LOREKEEPER.NoJournal"}}</li>
+      {{/each}}
+    </ol>
+    {{#if journal.selectedShared}}
+    <form data-journal-form data-journal-scope="shared" data-journal-id="{{journal.selectedShared.id}}">
+      <input name="title" type="text" value="{{journal.selectedShared.title}}">
+      <input name="date" type="date" value="{{journal.selectedShared.date}}">
+      <textarea name="content">{{journal.selectedShared.content}}</textarea>
+    </form>
+    {{/if}}
+  </div>
+</section>
+
+<section class="lorekeeper-journal-section">
+  <header>
+    <h2>{{localize "LOREKEEPER.PrivateJournal"}}</h2>
+    {{#if isGM}}
+    <select name="privateOwner">
+      {{#each journal.privateOwners}}
+      <option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>
+      {{/each}}
+    </select>
+    {{/if}}
+    <button type="button" data-action="create-private-journal"><i class="fas fa-plus"></i> {{localize "LOREKEEPER.NewSession"}}</button>
+  </header>
+  <div class="lorekeeper-journal-grid">
+    <ol>
+      {{#each journal.privateEntries}}
+      <li data-private-journal-id="{{id}}"><strong>{{title}}</strong><span>{{updatedBy}}</span></li>
+      {{else}}
+      <li class="lorekeeper-empty">{{localize "LOREKEEPER.NoJournal"}}</li>
+      {{/each}}
+    </ol>
+    {{#if journal.selectedPrivate}}
+    <form data-journal-form data-journal-scope="private" data-owner-id="{{journal.selectedPrivateUserId}}" data-journal-id="{{journal.selectedPrivate.id}}">
+      <input name="title" type="text" value="{{journal.selectedPrivate.title}}">
+      <input name="date" type="date" value="{{journal.selectedPrivate.date}}">
+      <textarea name="content">{{journal.selectedPrivate.content}}</textarea>
+    </form>
+    {{/if}}
+  </div>
+</section>

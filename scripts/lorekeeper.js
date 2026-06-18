@@ -1,0 +1,640 @@
+const MODULE_ID = "lorekeeper";
+const DATA_SETTING = "data";
+const TEMPLATES = {
+  app: `modules/${MODULE_ID}/templates/lorekeeper-app.hbs`,
+  entry: `modules/${MODULE_ID}/templates/lorekeeper-entry.hbs`,
+  journal: `modules/${MODULE_ID}/templates/lorekeeper-journal.hbs`
+};
+const ENTRY_TYPES = ["clue", "location", "character", "monster", "object"];
+const DEFAULT_IMAGE = "icons/svg/book.svg";
+const DEBOUNCE_MS = 1000;
+
+function localize(key) {
+  return game.i18n.localize(`LOREKEEPER.${key}`);
+}
+
+function duplicateData(value) {
+  if (foundry.utils?.deepClone) return foundry.utils.deepClone(value);
+  return foundry.utils.duplicate(value);
+}
+
+function mergeData(target, source) {
+  return foundry.utils.mergeObject(target, source, { inplace: false });
+}
+
+function randomID() {
+  if (foundry.utils?.randomID) return foundry.utils.randomID();
+  return crypto.randomUUID();
+}
+
+function debounce(fn, delay = DEBOUNCE_MS) {
+  let timeout;
+  return (...args) => {
+    window.clearTimeout(timeout);
+    timeout = window.setTimeout(() => fn(...args), delay);
+  };
+}
+
+function normalizeLorekeeperData(data = {}) {
+  const journals = data.journals ?? {};
+  const notes = data.notes ?? {};
+  return {
+    entries: data.entries ?? {},
+    journals: {
+      shared: journals.shared ?? {},
+      private: journals.private ?? {}
+    },
+    folders: data.folders ?? {},
+    playerFolders: data.playerFolders ?? {},
+    notes: {
+      shared: notes.shared ?? {},
+      private: notes.private ?? {}
+    }
+  };
+}
+
+function isGM(user = game.user) {
+  return Boolean(user?.isGM);
+}
+
+function canReadEntry(entry, user = game.user) {
+  if (!entry || !user) return false;
+  if (isGM(user)) return true;
+  if (entry.permissions?.default === "read") return true;
+  return entry.permissions?.users?.[user.id] === "read";
+}
+
+function entryDisplayTitle(entry, user = game.user) {
+  if (!entry) return "";
+  if (isGM(user)) return entry.titleGM || entry.titlePlayer || localize("Untitled");
+  return entry.titlePlayer || localize("Untitled");
+}
+
+function entryDisplayDescription(entry, user = game.user) {
+  if (!entry) return "";
+  if (isGM(user)) return entry.descriptionGM || entry.descriptionPlayer || "";
+  return entry.descriptionPlayer || "";
+}
+
+function safeImagePath(path) {
+  return path || DEFAULT_IMAGE;
+}
+
+function htmlToElement(html) {
+  if (html instanceof HTMLElement) return html;
+  if (html?.[0] instanceof HTMLElement) return html[0];
+  return html;
+}
+
+class LorekeeperDataStore {
+  static get() {
+    return normalizeLorekeeperData(duplicateData(game.settings.get(MODULE_ID, DATA_SETTING)));
+  }
+
+  static async set(data) {
+    const normalized = normalizeLorekeeperData(data);
+    if (isGM()) return game.settings.set(MODULE_ID, DATA_SETTING, normalized);
+    game.socket.emit(`module.${MODULE_ID}`, {
+      action: "setData",
+      userId: game.user.id,
+      data: normalized
+    });
+    return normalized;
+  }
+
+  static async update(mutator) {
+    const data = this.get();
+    const result = mutator(data);
+    return this.set(result ?? data);
+  }
+
+  static createEntry(type = "clue") {
+    const now = Date.now();
+    const id = randomID();
+    return {
+      id,
+      type: ENTRY_TYPES.includes(type) ? type : "clue",
+      titleGM: "",
+      titlePlayer: "",
+      image: "",
+      descriptionGM: "",
+      descriptionPlayer: "",
+      tags: [],
+      permissions: {
+        default: "none",
+        users: {}
+      },
+      createdAt: now,
+      updatedAt: now
+    };
+  }
+
+  static createJournalEntry() {
+    const now = Date.now();
+    return {
+      id: randomID(),
+      title: game.i18n.format("LOREKEEPER.SessionTitle", { date: new Date(now).toLocaleDateString() }),
+      content: "",
+      date: new Date(now).toISOString().slice(0, 10),
+      createdAt: now,
+      updatedAt: now,
+      updatedBy: game.user.id
+    };
+  }
+}
+
+class LorekeeperApp extends Application {
+  constructor(options = {}) {
+    super(options);
+    this.activeTab = options.activeTab ?? "codex";
+    this.selectedEntryId = options.entryId ?? null;
+    this.selectedSharedJournalId = null;
+    this.selectedPrivateUserId = game.user.id;
+    this.selectedPrivateJournalId = null;
+    this.search = "";
+    this.typeFilter = "all";
+    this._saveSharedNoteDebounced = debounce((entryId, content) => this._saveSharedNote(entryId, content));
+    this._savePrivateNoteDebounced = debounce((entryId, content) => this._savePrivateNote(entryId, content));
+    this._saveJournalDebounced = debounce((scope, ownerId, journalId, formData) => this._saveJournal(scope, ownerId, journalId, formData));
+  }
+
+  static get defaultOptions() {
+    return mergeData(super.defaultOptions, {
+      id: "lorekeeper-app",
+      title: localize("Title"),
+      template: TEMPLATES.app,
+      width: 980,
+      height: 680,
+      resizable: true,
+      popOut: true,
+      classes: ["lorekeeper-app"]
+    });
+  }
+
+  async getData() {
+    const data = LorekeeperDataStore.get();
+    const users = game.users.contents.map((user) => ({
+      id: user.id,
+      name: user.name,
+      isGM: user.isGM
+    }));
+    const entries = Object.values(data.entries)
+      .filter((entry) => canReadEntry(entry, game.user))
+      .map((entry) => this._prepareEntry(entry, data))
+      .filter((entry) => this._matchesFilters(entry))
+      .sort((a, b) => a.title.localeCompare(b.title));
+
+    if (!this.selectedEntryId || !entries.some((entry) => entry.id === this.selectedEntryId)) {
+      this.selectedEntryId = entries[0]?.id ?? null;
+    }
+
+    const selectedEntry = this.selectedEntryId ? this._prepareEntry(data.entries[this.selectedEntryId], data) : null;
+    const sharedJournals = Object.values(data.journals.shared).sort((a, b) => b.updatedAt - a.updatedAt);
+    if (!this.selectedSharedJournalId || !sharedJournals.some((entry) => entry.id === this.selectedSharedJournalId)) {
+      this.selectedSharedJournalId = sharedJournals[0]?.id ?? null;
+    }
+
+    const privateOwners = isGM()
+      ? users.filter((user) => !user.isGM)
+      : users.filter((user) => user.id === game.user.id);
+    if (!privateOwners.some((user) => user.id === this.selectedPrivateUserId)) {
+      this.selectedPrivateUserId = privateOwners[0]?.id ?? game.user.id;
+    }
+    const privateJournals = Object.values(data.journals.private[this.selectedPrivateUserId] ?? {}).sort((a, b) => b.updatedAt - a.updatedAt);
+    if (!this.selectedPrivateJournalId || !privateJournals.some((entry) => entry.id === this.selectedPrivateJournalId)) {
+      this.selectedPrivateJournalId = privateJournals[0]?.id ?? null;
+    }
+
+    return {
+      isGM: isGM(),
+      activeTab: this.activeTab,
+      isCodexTab: this.activeTab === "codex",
+      isJournalTab: this.activeTab === "journal",
+      entries,
+      selectedEntry,
+      entryTypes: ENTRY_TYPES.map((type) => ({
+        value: type,
+        label: localize(`Type.${type}`),
+        active: this.typeFilter === type
+      })),
+      typeFilter: this.typeFilter,
+      search: this.search,
+      users,
+      journal: {
+        shared: sharedJournals,
+        selectedShared: data.journals.shared[this.selectedSharedJournalId] ?? null,
+        privateOwners: privateOwners.map((user) => ({
+          ...user,
+          selected: user.id === this.selectedPrivateUserId
+        })),
+        selectedPrivateUserId: this.selectedPrivateUserId,
+        privateEntries: privateJournals,
+        selectedPrivate: data.journals.private[this.selectedPrivateUserId]?.[this.selectedPrivateJournalId] ?? null
+      }
+    };
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+    const root = htmlToElement(html);
+    root.querySelectorAll("[data-tab-target]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        this.activeTab = event.currentTarget.dataset.tabTarget;
+        this.render();
+      });
+    });
+    root.querySelector("[name='search']")?.addEventListener("input", debounce((event) => {
+      this.search = event.target.value;
+      this.render();
+    }, 250));
+    root.querySelector("[name='typeFilter']")?.addEventListener("change", (event) => {
+      this.typeFilter = event.target.value;
+      this.render();
+    });
+    root.querySelector("[data-action='create-entry']")?.addEventListener("click", () => this._createEntry());
+    root.querySelectorAll("[data-entry-id]").forEach((element) => {
+      element.addEventListener("click", (event) => {
+        const link = event.target.closest(".lorekeeper-entry-link");
+        if (link) return;
+        this.selectedEntryId = element.dataset.entryId;
+        this.activeTab = "codex";
+        this.render();
+      });
+    });
+    root.querySelector("[data-action='edit-entry']")?.addEventListener("click", () => this._openEntryEditor(this.selectedEntryId));
+    root.querySelector("[data-action='delete-entry']")?.addEventListener("click", () => this._deleteEntry(this.selectedEntryId));
+    root.querySelector("[data-action='edit-player-title']")?.addEventListener("click", () => this._editPlayerTitle(this.selectedEntryId));
+    root.querySelectorAll("[data-note='shared']").forEach((textarea) => {
+      textarea.addEventListener("input", (event) => this._saveSharedNoteDebounced(event.target.dataset.entryId, event.target.value));
+    });
+    root.querySelectorAll("[data-note='private']").forEach((textarea) => {
+      textarea.addEventListener("input", (event) => this._savePrivateNoteDebounced(event.target.dataset.entryId, event.target.value));
+    });
+    root.querySelectorAll(".lorekeeper-rendered").forEach((element) => this._activateInternalLinks(element));
+    root.querySelector("[data-action='create-shared-journal']")?.addEventListener("click", () => this._createJournal("shared"));
+    root.querySelector("[data-action='create-private-journal']")?.addEventListener("click", () => this._createJournal("private", this.selectedPrivateUserId));
+    root.querySelectorAll("[data-shared-journal-id]").forEach((element) => {
+      element.addEventListener("click", () => {
+        this.selectedSharedJournalId = element.dataset.sharedJournalId;
+        this.render();
+      });
+    });
+    root.querySelectorAll("[data-private-journal-id]").forEach((element) => {
+      element.addEventListener("click", () => {
+        this.selectedPrivateJournalId = element.dataset.privateJournalId;
+        this.render();
+      });
+    });
+    root.querySelector("[name='privateOwner']")?.addEventListener("change", (event) => {
+      this.selectedPrivateUserId = event.target.value;
+      this.selectedPrivateJournalId = null;
+      this.render();
+    });
+    root.querySelectorAll("[data-journal-form]").forEach((form) => {
+      form.addEventListener("input", () => {
+        const formData = new FormData(form);
+        this._saveJournalDebounced(form.dataset.journalScope, form.dataset.ownerId || null, form.dataset.journalId, {
+          title: formData.get("title") ?? "",
+          date: formData.get("date") ?? "",
+          content: formData.get("content") ?? ""
+        });
+      });
+    });
+  }
+
+  _prepareEntry(entry, data) {
+    if (!entry) return null;
+    const sharedNote = data.notes.shared[entry.id] ?? { content: "" };
+    const privateNote = data.notes.private[entry.id]?.[game.user.id] ?? { content: "" };
+    const privateNotesForGM = isGM()
+      ? Object.entries(data.notes.private[entry.id] ?? {}).map(([userId, note]) => ({
+        userId,
+        userName: game.users.get(userId)?.name ?? userId,
+        content: note.content ?? ""
+      })).filter((note) => note.content)
+      : [];
+    const renderedDescription = this._renderInternalLinks(entryDisplayDescription(entry));
+    const tags = Array.isArray(entry.tags) ? entry.tags : [];
+    return {
+      ...entry,
+      title: entryDisplayTitle(entry),
+      description: entryDisplayDescription(entry),
+      renderedDescription,
+      typeLabel: localize(`Type.${entry.type}`),
+      imageDisplay: safeImagePath(entry.image),
+      tagsDisplay: tags.join(", "),
+      sharedNote,
+      privateNote,
+      privateNotesForGM,
+      isVisible: canReadEntry(entry)
+    };
+  }
+
+  _matchesFilters(entry) {
+    if (this.typeFilter !== "all" && entry.type !== this.typeFilter) return false;
+    if (!this.search) return true;
+    const haystack = [entry.title, entry.description, entry.tagsDisplay, entry.typeLabel].join(" ").toLocaleLowerCase();
+    return haystack.includes(this.search.toLocaleLowerCase());
+  }
+
+  _renderInternalLinks(content = "") {
+    const escaped = Handlebars.escapeExpression(content);
+    return escaped.replace(/\[\[entry:([^\]]+)\]\]/g, (_match, id) => {
+      const entry = LorekeeperDataStore.get().entries[id];
+      if (!entry || !canReadEntry(entry)) return `<span class="lorekeeper-missing-link">[[entry:${Handlebars.escapeExpression(id)}]]</span>`;
+      return `<a class="lorekeeper-entry-link" data-entry-link="${Handlebars.escapeExpression(id)}">${Handlebars.escapeExpression(entryDisplayTitle(entry))}</a>`;
+    }).replace(/\n/g, "<br>");
+  }
+
+  _activateInternalLinks(root) {
+    root.querySelectorAll("[data-entry-link]").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        const entryId = event.currentTarget.dataset.entryLink;
+        if (event.ctrlKey || event.metaKey) {
+          new LorekeeperApp({ entryId, activeTab: "codex" }).render(true);
+          return;
+        }
+        this.selectedEntryId = entryId;
+        this.activeTab = "codex";
+        this.render();
+      });
+      link.addEventListener("mouseenter", (event) => this._showPreview(event.currentTarget));
+      link.addEventListener("mouseleave", () => this._hidePreview());
+    });
+  }
+
+  _showPreview(link) {
+    const entry = LorekeeperDataStore.get().entries[link.dataset.entryLink];
+    if (!entry || !canReadEntry(entry)) return;
+    this._hidePreview();
+    const preview = document.createElement("div");
+    preview.className = "lorekeeper-entry-preview";
+    preview.innerHTML = `
+      <img src="${safeImagePath(entry.image)}" alt="">
+      <div>
+        <strong>${Handlebars.escapeExpression(entryDisplayTitle(entry))}</strong>
+        <span>${Handlebars.escapeExpression(localize(`Type.${entry.type}`))}</span>
+      </div>
+    `;
+    document.body.appendChild(preview);
+    const rect = link.getBoundingClientRect();
+    preview.style.left = `${rect.left}px`;
+    preview.style.top = `${rect.bottom + 8}px`;
+    this._preview = preview;
+  }
+
+  _hidePreview() {
+    this._preview?.remove();
+    this._preview = null;
+  }
+
+  async _createEntry() {
+    const entry = LorekeeperDataStore.createEntry(this.typeFilter === "all" ? "clue" : this.typeFilter);
+    await LorekeeperDataStore.update((data) => {
+      data.entries[entry.id] = entry;
+    });
+    this.selectedEntryId = entry.id;
+    this.activeTab = "codex";
+    this.render();
+    this._openEntryEditor(entry.id);
+  }
+
+  async _deleteEntry(entryId) {
+    if (!entryId || !isGM()) return;
+    const confirmed = await Dialog.confirm({
+      title: localize("Delete"),
+      content: `<p>${localize("DeleteConfirm")}</p>`
+    });
+    if (!confirmed) return;
+    await LorekeeperDataStore.update((data) => {
+      delete data.entries[entryId];
+      delete data.notes.shared[entryId];
+      delete data.notes.private[entryId];
+    });
+    this.selectedEntryId = null;
+    this.render();
+  }
+
+  _openEntryEditor(entryId) {
+    if (!entryId || !isGM()) return;
+    new LorekeeperEntryEditor({ entryId, parent: this }).render(true);
+  }
+
+  async _editPlayerTitle(entryId) {
+    if (!entryId || !canReadEntry(LorekeeperDataStore.get().entries[entryId])) return;
+    const entry = LorekeeperDataStore.get().entries[entryId];
+    const content = `<form><div class="form-group"><label>${localize("TitlePlayer")}</label><input name="titlePlayer" type="text" value="${Handlebars.escapeExpression(entry.titlePlayer ?? "")}"></div></form>`;
+    const titlePlayer = await new Promise((resolve) => {
+      new Dialog({
+        title: localize("Edit"),
+        content,
+        buttons: {
+          save: {
+            label: localize("Save"),
+            callback: (html) => resolve(html.find("[name='titlePlayer']").val())
+          },
+          cancel: {
+            label: localize("Cancel"),
+            callback: () => resolve(null)
+          }
+        },
+        default: "save",
+        close: () => resolve(null)
+      }).render(true);
+    });
+    if (titlePlayer === null) return;
+    await LorekeeperDataStore.update((data) => {
+      data.entries[entryId].titlePlayer = titlePlayer;
+      data.entries[entryId].updatedAt = Date.now();
+    });
+    this.render();
+  }
+
+  async _saveSharedNote(entryId, content) {
+    if (!entryId || !canReadEntry(LorekeeperDataStore.get().entries[entryId])) return;
+    await LorekeeperDataStore.update((data) => {
+      data.notes.shared[entryId] = { content, updatedAt: Date.now(), updatedBy: game.user.id };
+    });
+  }
+
+  async _savePrivateNote(entryId, content) {
+    if (!entryId || !canReadEntry(LorekeeperDataStore.get().entries[entryId])) return;
+    await LorekeeperDataStore.update((data) => {
+      data.notes.private[entryId] ??= {};
+      data.notes.private[entryId][game.user.id] = { content, updatedAt: Date.now(), updatedBy: game.user.id };
+    });
+  }
+
+  async _createJournal(scope, ownerId = null) {
+    const entry = LorekeeperDataStore.createJournalEntry();
+    await LorekeeperDataStore.update((data) => {
+      if (scope === "shared") {
+        data.journals.shared[entry.id] = entry;
+        this.selectedSharedJournalId = entry.id;
+      } else {
+        const userId = ownerId ?? game.user.id;
+        data.journals.private[userId] ??= {};
+        data.journals.private[userId][entry.id] = entry;
+        this.selectedPrivateUserId = userId;
+        this.selectedPrivateJournalId = entry.id;
+      }
+    });
+    this.activeTab = "journal";
+    this.render();
+  }
+
+  async _saveJournal(scope, ownerId, journalId, formData) {
+    if (!journalId) return;
+    await LorekeeperDataStore.update((data) => {
+      const collection = scope === "shared" ? data.journals.shared : data.journals.private[ownerId ?? game.user.id];
+      if (!collection?.[journalId]) return;
+      collection[journalId] = {
+        ...collection[journalId],
+        title: formData.title,
+        date: formData.date,
+        content: formData.content,
+        updatedAt: Date.now(),
+        updatedBy: game.user.id
+      };
+    });
+  }
+}
+
+class LorekeeperEntryEditor extends Application {
+  constructor(options = {}) {
+    super(options);
+    this.entryId = options.entryId;
+    this.parent = options.parent;
+  }
+
+  static get defaultOptions() {
+    return mergeData(super.defaultOptions, {
+      id: "lorekeeper-entry-editor",
+      title: localize("Edit"),
+      template: TEMPLATES.entry,
+      width: 620,
+      height: "auto",
+      resizable: true,
+      popOut: true,
+      classes: ["lorekeeper-app", "lorekeeper-entry-editor"]
+    });
+  }
+
+  getData() {
+    const data = LorekeeperDataStore.get();
+    const entry = data.entries[this.entryId];
+    return {
+      entry,
+      defaultPermissionNone: entry.permissions?.default !== "read",
+      defaultPermissionRead: entry.permissions?.default === "read",
+      entryTypes: ENTRY_TYPES.map((type) => ({
+        value: type,
+        label: localize(`Type.${type}`),
+        selected: entry.type === type
+      })),
+      users: game.users.contents.filter((user) => !user.isGM).map((user) => ({
+        id: user.id,
+        name: user.name,
+        permission: entry.permissions?.users?.[user.id] ?? "none",
+        permissionNone: entry.permissions?.users?.[user.id] !== "read",
+        permissionRead: entry.permissions?.users?.[user.id] === "read"
+      }))
+    };
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+    const root = htmlToElement(html);
+    root.querySelector("[data-action='pick-image']")?.addEventListener("click", () => {
+      new FilePicker({
+        type: "image",
+        callback: (path) => {
+          const input = root.querySelector("[name='image']");
+          input.value = path;
+        }
+      }).browse();
+    });
+    root.querySelector("form")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      this._save(new FormData(event.currentTarget));
+    });
+  }
+
+  async _save(formData) {
+    const tags = String(formData.get("tags") ?? "")
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    const userPermissions = {};
+    for (const user of game.users.contents.filter((user) => !user.isGM)) {
+      const permission = formData.get(`permission-${user.id}`) ?? "none";
+      if (permission === "read") userPermissions[user.id] = "read";
+    }
+    await LorekeeperDataStore.update((data) => {
+      data.entries[this.entryId] = {
+        ...data.entries[this.entryId],
+        type: formData.get("type"),
+        titleGM: formData.get("titleGM") ?? "",
+        titlePlayer: formData.get("titlePlayer") ?? "",
+        image: formData.get("image") ?? "",
+        descriptionGM: formData.get("descriptionGM") ?? "",
+        descriptionPlayer: formData.get("descriptionPlayer") ?? "",
+        tags,
+        permissions: {
+          default: formData.get("defaultPermission") ?? "none",
+          users: userPermissions
+        },
+        updatedAt: Date.now()
+      };
+    });
+    this.parent?.render();
+    this.close();
+  }
+}
+
+Hooks.once("init", async () => {
+  game.settings.register(MODULE_ID, DATA_SETTING, {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {
+      entries: {},
+      journals: {},
+      folders: {},
+      playerFolders: {},
+      notes: {}
+    }
+  });
+  await loadTemplates(Object.values(TEMPLATES));
+});
+
+Hooks.once("ready", async () => {
+  game.socket.on(`module.${MODULE_ID}`, async (message) => {
+    if (!isGM() || message?.action !== "setData") return;
+    await game.settings.set(MODULE_ID, DATA_SETTING, normalizeLorekeeperData(message.data));
+  });
+  if (isGM()) {
+    const data = LorekeeperDataStore.get();
+    await LorekeeperDataStore.set(data);
+  }
+});
+
+Hooks.on("renderSettings", (_app, html) => {
+  const root = htmlToElement(html);
+  if (root.querySelector(".lorekeeper-open-button")) return;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "lorekeeper-open-button";
+  button.innerHTML = `<i class="fas fa-book-open"></i> ${localize("Title")}`;
+  button.addEventListener("click", () => new LorekeeperApp().render(true));
+  const target = root.querySelector("#settings-game") ?? root.querySelector(".settings-sidebar") ?? root;
+  target.appendChild(button);
+});
+
+globalThis.Lorekeeper = {
+  LorekeeperApp,
+  LorekeeperDataStore,
+  canReadEntry,
+  isGM
+};

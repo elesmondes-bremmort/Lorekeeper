@@ -1,0 +1,95 @@
+<section class="lorekeeper-shell">
+  <nav class="lorekeeper-tabs">
+    <button type="button" class="{{#if isCodexTab}}active{{/if}}" data-tab-target="codex">{{localize "LOREKEEPER.Codex"}}</button>
+    <button type="button" class="{{#if isJournalTab}}active{{/if}}" data-tab-target="journal">{{localize "LOREKEEPER.Journal"}}</button>
+  </nav>
+
+  {{#if isCodexTab}}
+  <div class="lorekeeper-workspace">
+    <aside class="lorekeeper-sidebar">
+      <div class="lorekeeper-toolbar">
+        <input type="search" name="search" value="{{search}}" placeholder="{{localize 'LOREKEEPER.Search'}}">
+        <select name="typeFilter">
+          <option value="all">{{localize "LOREKEEPER.AllTypes"}}</option>
+          {{#each entryTypes}}
+          <option value="{{value}}" {{#if active}}selected{{/if}}>{{label}}</option>
+          {{/each}}
+        </select>
+      </div>
+      {{#if isGM}}
+      <button type="button" data-action="create-entry"><i class="fas fa-plus"></i> {{localize "LOREKEEPER.CreateEntry"}}</button>
+      {{/if}}
+      <ol class="lorekeeper-entry-list">
+        {{#each entries}}
+        <li class="lorekeeper-entry-card" data-entry-id="{{id}}">
+          <img src="{{imageDisplay}}" alt="" onerror="this.style.display='none'">
+          <div>
+            <strong>{{title}}</strong>
+            <span>{{typeLabel}}</span>
+          </div>
+        </li>
+        {{else}}
+        <li class="lorekeeper-empty">{{localize "LOREKEEPER.NoEntries"}}</li>
+        {{/each}}
+      </ol>
+    </aside>
+
+    <main class="lorekeeper-content">
+      {{#if selectedEntry}}
+      <article class="lorekeeper-detail">
+        <header>
+          <div>
+            <span class="lorekeeper-type">{{selectedEntry.typeLabel}}</span>
+            <h2>{{selectedEntry.title}}</h2>
+          </div>
+          <div class="lorekeeper-actions">
+            {{#if isGM}}
+            <button type="button" data-action="edit-entry"><i class="fas fa-pen"></i> {{localize "LOREKEEPER.Edit"}}</button>
+            <button type="button" data-action="delete-entry"><i class="fas fa-trash"></i> {{localize "LOREKEEPER.Delete"}}</button>
+            {{else}}
+            <button type="button" data-action="edit-player-title"><i class="fas fa-pen"></i> {{localize "LOREKEEPER.EditPlayerTitle"}}</button>
+            {{/if}}
+          </div>
+        </header>
+        <img class="lorekeeper-hero-image" src="{{selectedEntry.imageDisplay}}" alt="" onerror="this.src='icons/svg/book.svg'; this.classList.add('missing')">
+        <div class="lorekeeper-rendered">{{{selectedEntry.renderedDescription}}}</div>
+        {{#if selectedEntry.tagsDisplay}}
+        <p class="lorekeeper-tags">{{selectedEntry.tagsDisplay}}</p>
+        {{/if}}
+        <section class="lorekeeper-notes">
+          <label>
+            <span>{{localize "LOREKEEPER.SharedNotes"}}</span>
+            <textarea data-note="shared" data-entry-id="{{selectedEntry.id}}">{{selectedEntry.sharedNote.content}}</textarea>
+          </label>
+          <label>
+            <span>{{localize "LOREKEEPER.PrivateNotes"}}</span>
+            <textarea data-note="private" data-entry-id="{{selectedEntry.id}}">{{selectedEntry.privateNote.content}}</textarea>
+          </label>
+        </section>
+        {{#if isGM}}
+        <section class="lorekeeper-private-review">
+          <h3>{{localize "LOREKEEPER.PlayerPrivateNotes"}}</h3>
+          {{#each selectedEntry.privateNotesForGM}}
+          <article>
+            <strong>{{userName}}</strong>
+            <p>{{content}}</p>
+          </article>
+          {{else}}
+          <p>{{localize "LOREKEEPER.NoPrivateNotes"}}</p>
+          {{/each}}
+        </section>
+        {{/if}}
+      </article>
+      {{else}}
+      <div class="lorekeeper-empty-panel">{{localize "LOREKEEPER.NoEntrySelected"}}</div>
+      {{/if}}
+    </main>
+  </div>
+  {{/if}}
+
+  {{#if isJournalTab}}
+  <div class="lorekeeper-journal">
+    {{> "modules/lorekeeper/templates/lorekeeper-journal.hbs"}}
+  </div>
+  {{/if}}
+</section>
