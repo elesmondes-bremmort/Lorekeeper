@@ -11,8 +11,38 @@
 
 - Verify that `module.json` is valid.
 - Verify that `manifest` points to `releases/latest/download/module.json`.
-- Verify that `download` points to a versioned zip.
+- Verify that `download` points to `releases/latest/download/lorekeeper.zip`.
 - Verify that the zip contains `module.json` at the root.
+
+## Test ZIP
+
+- Run `npm run package`.
+- Verify that `dist/lorekeeper.zip` exists.
+- Open the zip.
+- Verify that `module.json` is directly at the root.
+- Verify that there is no parent folder named `Lorekeeper-main/`.
+
+## Test manifest
+
+- Verify that `module.json` contains:
+  - `manifest` pointing to `releases/latest/download/module.json`.
+  - `download` pointing to `releases/latest/download/lorekeeper.zip`.
+
+## Test release
+
+- Create a tag named `v0.1.0`.
+- Push the tag.
+- Verify that GitHub Actions creates a release.
+- Verify that the release contains:
+  - `module.json`.
+  - `lorekeeper.zip`.
+
+## Test Foundry / Forge
+
+- Install the module with `https://github.com/elesmondes-bremmort/Lorekeeper/releases/latest/download/module.json`.
+- Verify that installation succeeds.
+- Enable the module in a world.
+- Verify that there is no blocking console error.
 
 ## GM Codex
 

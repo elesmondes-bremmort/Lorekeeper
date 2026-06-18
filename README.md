@@ -16,15 +16,15 @@ It stores its own world-scoped data and does not depend on Actors, Items, Journa
 - Image path references through Foundry file paths without duplicating image data.
 - English and French localization.
 
-## Installation Via Manifest
+## Installation
 
-Use this manifest URL in Foundry VTT:
+Manifest URL:
 
 ```text
 https://github.com/elesmondes-bremmort/Lorekeeper/releases/latest/download/module.json
 ```
 
-Foundry installs from `module.json` and downloads the versioned zip declared by the `download` field.
+Foundry installs from `module.json` and downloads `lorekeeper.zip` from the latest GitHub release.
 
 ## Manual Installation
 
@@ -33,6 +33,15 @@ Foundry installs from `module.json` and downloads the versioned zip declared by 
 3. Make sure `module.json` is at the root of that folder.
 4. Restart Foundry or refresh the setup screen.
 5. Enable Lorekeeper in your world.
+
+## Build package
+
+```bash
+npm install
+npm run package
+```
+
+The package command creates `dist/lorekeeper.zip` with `module.json` directly at the root of the archive for Foundry VTT and The Forge installation.
 
 ## Compatibility
 
