@@ -6,17 +6,17 @@ Lorekeeper is a lightweight, system-agnostic campaign knowledge base and journal
 
 0.0.1
 
-## Current status
+## Status
 
 Technical foundation only.
 
-This version only provides:
-- module installation;
-- launcher button;
-- empty resizable Lorekeeper window.
+Current features:
+- floating launcher button;
+- empty resizable Lorekeeper window;
+- French and English localization.
 
 Codex and Journal features will be added step by step.
 
-## Development manifest
+## Development Manifest
 
 https://raw.githubusercontent.com/elesmondes-bremmort/Lorekeeper/main/module.json

@@ -1,7 +1,6 @@
 {
   "LOREKEEPER.Title": "Lorekeeper",
   "LOREKEEPER.Open": "Open Lorekeeper",
-  "LOREKEEPER.Ready": "Lorekeeper is ready.",
   "LOREKEEPER.PlaceholderTitle": "Lorekeeper V0.0.1",
-  "LOREKEEPER.PlaceholderText": "Technical foundation loaded. Codex and Journal will be added in the next steps."
+  "LOREKEEPER.PlaceholderText": "Technical foundation loaded. Codex and Journal will be added in the next versions."
 }
