@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.2
+
+- Persisted the Lorekeeper window position and size for each user.
+- Restored each user's open or closed window state after a Foundry reload.
+
 ## 0.0.1
 
 - Reset module from scratch.
