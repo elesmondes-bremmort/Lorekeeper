@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Persisted each user's active tab and Codex search.
+- Added safe restoration of a selected entry when it is still available.
+
 ## 0.1.0
 
 - Replaced the placeholder with the Codex and Journal interface shell.

@@ -2,7 +2,7 @@
   "id": "lorekeeper",
   "title": "Lorekeeper",
   "description": "A lightweight, system-agnostic campaign knowledge base and journal for Foundry VTT.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "compatibility": {
     "minimum": "13",
     "verified": "13"
