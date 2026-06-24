@@ -4,19 +4,19 @@ Lorekeeper is a lightweight, system-agnostic campaign knowledge base and journal
 
 ## Version
 
-0.0.2
+0.1.0
 
 ## Status
 
-Technical foundation only.
+Interface shell only.
 
 Current features:
 - floating launcher button;
-- empty resizable Lorekeeper window;
+- resizable Lorekeeper window with Codex and Journal tabs;
 - per-user persistence of window position, size, and open state;
 - French and English localization.
 
-Codex and Journal features will be added step by step.
+Codex and Journal data features will be added step by step.
 
 ## Development Manifest
 

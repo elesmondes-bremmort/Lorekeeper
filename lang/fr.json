@@ -1,6 +1,13 @@
 {
   "LOREKEEPER.Title": "Lorekeeper",
   "LOREKEEPER.Open": "Ouvrir Lorekeeper",
-  "LOREKEEPER.PlaceholderTitle": "Lorekeeper V0.0.1",
-  "LOREKEEPER.PlaceholderText": "Socle technique chargé. Le Codex et le Journal seront ajoutés dans les prochaines versions."
+  "LOREKEEPER.Navigation": "Sections de Lorekeeper",
+  "LOREKEEPER.Codex": "Codex",
+  "LOREKEEPER.Journal": "Journal",
+  "LOREKEEPER.Search": "Rechercher",
+  "LOREKEEPER.NoEntries": "Aucune entrée",
+  "LOREKEEPER.NoEntrySelected": "Aucune entrée sélectionnée",
+  "LOREKEEPER.SharedJournal": "Journal commun",
+  "LOREKEEPER.MyJournal": "Mon journal",
+  "LOREKEEPER.NoJournalEntrySelected": "Aucune entrée de journal sélectionnée"
 }

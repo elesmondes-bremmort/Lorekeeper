@@ -1,9 +1,92 @@
 <section class="lorekeeper-shell">
-  <header class="lorekeeper-header">
-    <h1>{{localize "LOREKEEPER.PlaceholderTitle"}}</h1>
-  </header>
+  <nav class="lorekeeper-tabs" role="tablist" aria-label="{{localize "LOREKEEPER.Navigation"}}">
+    <button
+      class="lorekeeper-tab active"
+      type="button"
+      role="tab"
+      id="lorekeeper-tab-codex"
+      aria-controls="lorekeeper-panel-codex"
+      aria-selected="true"
+      data-lorekeeper-tab="codex"
+    >
+      <i class="fa-solid fa-book" aria-hidden="true"></i>
+      {{localize "LOREKEEPER.Codex"}}
+    </button>
 
-  <main class="lorekeeper-body">
-    <p>{{localize "LOREKEEPER.PlaceholderText"}}</p>
+    <button
+      class="lorekeeper-tab"
+      type="button"
+      role="tab"
+      id="lorekeeper-tab-journal"
+      aria-controls="lorekeeper-panel-journal"
+      aria-selected="false"
+      tabindex="-1"
+      data-lorekeeper-tab="journal"
+    >
+      <i class="fa-solid fa-feather-pointed" aria-hidden="true"></i>
+      {{localize "LOREKEEPER.Journal"}}
+    </button>
+  </nav>
+
+  <main class="lorekeeper-workspace">
+    <section
+      class="lorekeeper-panel active"
+      id="lorekeeper-panel-codex"
+      role="tabpanel"
+      aria-labelledby="lorekeeper-tab-codex"
+      data-lorekeeper-panel="codex"
+    >
+      <aside class="lorekeeper-sidebar">
+        <label class="lorekeeper-search">
+          <span class="sr-only">{{localize "LOREKEEPER.Search"}}</span>
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input
+            type="search"
+            placeholder="{{localize "LOREKEEPER.Search"}}"
+            aria-label="{{localize "LOREKEEPER.Search"}}"
+          >
+        </label>
+
+        <div class="lorekeeper-list">
+          <p class="lorekeeper-empty">{{localize "LOREKEEPER.NoEntries"}}</p>
+        </div>
+      </aside>
+
+      <div class="lorekeeper-content">
+        <p class="lorekeeper-empty lorekeeper-empty-main">
+          <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+          {{localize "LOREKEEPER.NoEntrySelected"}}
+        </p>
+      </div>
+    </section>
+
+    <section
+      class="lorekeeper-panel"
+      id="lorekeeper-panel-journal"
+      role="tabpanel"
+      aria-labelledby="lorekeeper-tab-journal"
+      data-lorekeeper-panel="journal"
+      hidden
+    >
+      <aside class="lorekeeper-sidebar">
+        <div class="lorekeeper-journal-list">
+          <div class="lorekeeper-journal-item">
+            <i class="fa-solid fa-users" aria-hidden="true"></i>
+            {{localize "LOREKEEPER.SharedJournal"}}
+          </div>
+          <div class="lorekeeper-journal-item">
+            <i class="fa-solid fa-user" aria-hidden="true"></i>
+            {{localize "LOREKEEPER.MyJournal"}}
+          </div>
+        </div>
+      </aside>
+
+      <div class="lorekeeper-content">
+        <p class="lorekeeper-empty lorekeeper-empty-main">
+          <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+          {{localize "LOREKEEPER.NoJournalEntrySelected"}}
+        </p>
+      </div>
+    </section>
   </main>
 </section>

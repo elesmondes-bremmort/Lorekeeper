@@ -83,6 +83,27 @@ class LorekeeperApp extends Application {
     return updatedPosition;
   }
 
+  activateListeners(html) {
+    super.activateListeners(html);
+
+    html.find("[data-lorekeeper-tab]").on("click", (event) => {
+      const selectedTab = event.currentTarget.dataset.lorekeeperTab;
+
+      html.find("[data-lorekeeper-tab]").each((_index, tab) => {
+        const isActive = tab.dataset.lorekeeperTab === selectedTab;
+        tab.classList.toggle("active", isActive);
+        tab.setAttribute("aria-selected", String(isActive));
+        tab.tabIndex = isActive ? 0 : -1;
+      });
+
+      html.find("[data-lorekeeper-panel]").each((_index, panel) => {
+        const isActive = panel.dataset.lorekeeperPanel === selectedTab;
+        panel.classList.toggle("active", isActive);
+        panel.hidden = !isActive;
+      });
+    });
+  }
+
   async close(options = {}) {
     await WindowState.update(
       {

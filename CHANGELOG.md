@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0
+
+- Replaced the placeholder with the Codex and Journal interface shell.
+- Added empty list and content states in French and English.
+- Added tab navigation without introducing data or editing features.
+
 ## 0.0.2
 
 - Persisted the Lorekeeper window position and size for each user.
